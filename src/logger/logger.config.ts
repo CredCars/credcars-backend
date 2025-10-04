@@ -21,6 +21,7 @@ export const winstonConfig: WinstonModuleOptions = {
         winston.format((info) => {
           if (
             info.context &&
+            typeof info.context === 'string' &&
             [
               'InstanceLoader',
               'RoutesResolver',

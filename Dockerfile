@@ -10,21 +10,13 @@ RUN apt-get update && \
        python3-distutils \
        make \
        g++ \
-       git \
-       build-essential && \
+       build-essential \
+       git && \
     rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-RUN npm config set python /usr/bin/python3 && \
-    npm config set unsafe-perm true && \
+RUN npm config set unsafe-perm true && \
     npm install --no-audit --no-fund
 
 COPY . .
 RUN npm run build && npm prune --omit=dev
-
-FROM node:18-bookworm-slim AS runtime
-WORKDIR /app
-COPY --from=builder /app .
-ENV NODE_ENV=production
-EXPOSE 3000
-CMD ["node", "dist/main.js"]

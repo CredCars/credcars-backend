@@ -8,7 +8,7 @@ import * as bcrypt from 'bcryptjs';
 import { CreateUserDTO } from '../user/dto';
 import { LoginUserDTO } from './dto';
 import { UserDocument } from '../user/schema/user.schema';
-import configuration from '../config/configuration';
+import configuration from '@config/configuration';
 
 jest.mock('bcryptjs');
 

@@ -10,7 +10,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { WinstonModule } from 'nest-winston';
 import { winstonConfig } from './logger/logger.config';
 import { UtilModule } from './util/util.module';
-import configuration from './config/configuration';
+import configuration from '@config/configuration';
 import { Logger } from '@nestjs/common';
 
 @Module({

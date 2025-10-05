@@ -1,12 +1,11 @@
 # Use Node.js 18 Alpine as base image
-FROM node:18-alpine AS builder
+FROM node:18 AS builder
 
 WORKDIR /app
 
 # Install all dependencies (including dev) for build
 COPY package*.json ./
-RUN apk add --no-cache python3 make g++ \
-  && npm ci
+RUN npm ci
 
 # Copy source and build
 COPY . .
@@ -14,7 +13,7 @@ RUN npm run build \
   && npm prune --omit=dev
 
 # ----- Runtime image -----
-FROM node:18-alpine AS runtime
+FROM node:18-slim AS runtime
 
 WORKDIR /app
 

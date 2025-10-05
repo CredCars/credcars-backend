@@ -1,0 +1,60 @@
+name: Deploy CredCars Backend
+
+# Trigger manually for testing
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout the repo (so GitHub Actions has access to workflow files)
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      # 2️⃣ Start SSH agent and add server key
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
+
+      # 3️⃣ Test SSH connection (dry-run)
+      - name: Test SSH connection
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@54.235.43.222 'echo "SSH connection successful!"'
+
+      # 4️⃣ Test Git pull on server (dry-run)
+      - name: Test Git pull
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@54.235.43.222 << 'EOF'
+            cd /home/ubuntu/credcars-backend
+            echo "Current git branch and status:"
+            git branch
+            git status
+            echo "Pulling latest changes..."
+            git pull origin main 
+          EOF
+
+      # 5️⃣ Build Docker container (dry-run)
+      - name: Build Docker container
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@54.235.43.222 << 'EOF'
+            cd /home/ubuntu/credcars-backend
+            echo "Building new Docker container..."
+            docker-compose build
+            docker-compose up -d --no-deps --build backend_new
+            echo "Checking container health..."
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' credcars-backend_new)
+            echo "Health status: $STATUS"
+          EOF
+      # 6️⃣ Swap containers (FULL DEPLOY) - only enable after dry-run is successful
+      - name: Swap old container with new (FULL DEPLOY)
+        if: false # ❌ Keep false until ready to fully deploy
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@54.235.43.222 << 'EOF'
+            echo "Stopping old container (if exists)..."
+            docker stop credcars-backend || true
+            echo "Renaming new container..."
+            docker rename credcars-backend_new credcars-backend
+          EOF

@@ -9,15 +9,15 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
-import { ResponseService } from '../util/response.service';
-import { CreateUserDTO } from '../user/dto';
-import { LoginUserDTO } from './dto';
+import { ResponseService } from '@util/response.service';
+import { CreateUserDTO } from '@user/dto';
+import { LoginUserDTO } from '@auth/dto';
 import { ApiBody, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { User } from '../user/schema/user.schema';
+import { User } from '@user/schema/user.schema';
 import { ApiTags } from '@nestjs/swagger';
-import { AuthThrottlerGuard } from '../common/guards/throttler-behind-proxy.guard';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { RefreshTokenGuard } from './guards/refresh-token.guard';
+import { AuthThrottlerGuard } from '@common/guards/throttler-behind-proxy.guard';
+import { JwtAuthGuard } from '@auth/guards/jwt-auth.guard';
+import { RefreshTokenGuard } from '@auth/guards/refresh-token.guard';
 import { Logger } from '@nestjs/common';
 
 @ApiTags('Auth')

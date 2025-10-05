@@ -7,8 +7,8 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose/dist/common';
 import { Model } from 'mongoose';
-import { UserDocument } from './schema/user.schema';
-import { SchemaNames } from '../constants/schema-constants';
+import { UserDocument } from '@user/schema/user.schema';
+import { SchemaNames } from '@constants/schema-constants';
 
 @Injectable()
 export class UserService {

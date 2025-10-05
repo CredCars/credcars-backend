@@ -5,12 +5,12 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UserService } from '../user/user.service';
+import { UserService } from '@user/user.service';
 import * as bcrypt from 'bcryptjs';
-import { LoginUserDTO } from './dto';
-import { CreateUserDTO } from '../user/dto';
-import { UserDocument } from '../user/schema/user.schema';
-import configuration from '../config/configuration';
+import { LoginUserDTO } from '@auth/dto';
+import { CreateUserDTO } from '@user/dto';
+import { UserDocument } from '@user/schema/user.schema';
+import configuration from '@config/configuration';
 
 @Injectable()
 export class AuthService {

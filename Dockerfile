@@ -5,23 +5,23 @@ WORKDIR /app
 
 # Install all dependencies (including dev) for build
 COPY package*.json ./
-RUN npm ci
+RUN apk add --no-cache python3 make g++ \
+  && npm ci
 
 # Copy source and build
 COPY . .
-RUN npm run build
+RUN npm run build \
+  && npm prune --omit=dev
 
 # ----- Runtime image -----
 FROM node:18-alpine AS runtime
 
 WORKDIR /app
 
-# Install only production dependencies
-COPY package*.json ./
-RUN npm ci --omit=dev
-
-# Copy built assets from builder
+# Copy production deps and built assets from builder
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY package*.json ./
 
 ENV NODE_ENV=production
 ENV PORT=3000

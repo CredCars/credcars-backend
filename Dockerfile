@@ -15,8 +15,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-RUN npm config set unsafe-perm true && \
-    npm install --no-audit --no-fund
+RUN npm install --unsafe-perm --no-audit --no-fund
 
 COPY . .
 RUN npm run build && npm prune --omit=dev

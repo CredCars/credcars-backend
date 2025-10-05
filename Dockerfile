@@ -1,27 +1,31 @@
 # Use Node.js 18 Alpine as base image
-FROM node:18-alpine
+FROM node:18-alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
+# Install all dependencies (including dev) for build
 COPY package*.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy source code
+# Copy source and build
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Expose port 3000
-EXPOSE 3000
+# ----- Runtime image -----
+FROM node:18-alpine AS runtime
 
-# Set environment variables
+WORKDIR /app
+
+# Install only production dependencies
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# Copy built assets from builder
+COPY --from=builder /app/dist ./dist
+
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Start the application
+EXPOSE 3000
+
 CMD ["node", "dist/main.js"]

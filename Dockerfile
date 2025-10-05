@@ -1,5 +1,5 @@
 # Use Node.js 18 Alpine as base image
-FROM node:18 AS builder
+FROM node:18-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -8,7 +8,9 @@ COPY package*.json ./
 RUN apt-get update \
   && apt-get install -y --no-install-recommends python3 make g++ \
   && rm -rf /var/lib/apt/lists/* \
-  && npm ci
+  && npm config set python /usr/bin/python3 \
+  && npm config set unsafe-perm true \
+  && npm install --no-audit --no-fund
 
 # Copy source and build
 COPY . .
@@ -16,7 +18,7 @@ RUN npm run build \
   && npm prune --omit=dev
 
 # ----- Runtime image -----
-FROM node:18-slim AS runtime
+FROM node:18-bookworm-slim AS runtime
 
 WORKDIR /app
 

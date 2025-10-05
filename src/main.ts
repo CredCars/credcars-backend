@@ -4,7 +4,7 @@ import { ValidationPipe, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-import configuration from './config/configuration';
+import configuration from '@config/configuration';
 import corsConfig from './cors.config';
 import * as session from 'express-session';
 import * as path from 'path';

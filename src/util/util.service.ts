@@ -12,7 +12,7 @@ import {
 import axios from 'axios';
 import * as moment from 'moment';
 import { RangeEnums, CurrencyAmount } from '.';
-import configuration from '../../../credcars-backend/src/config/configuration';
+import configuration from '@config/configuration';
 
 @Injectable()
 export class UtilService {

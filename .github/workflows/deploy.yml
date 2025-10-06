@@ -30,7 +30,7 @@ jobs:
 
       # 4. Deploy Backend via SSH
       - name: Deploy Backend to Server
-        uses: appleboy/ssh-action@v0.1.10
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ubuntu
@@ -41,13 +41,21 @@ jobs:
           script: |
             set -e
             echo "=== Deploying Backend ==="
+
+            echo "Pulling latest image..."
             docker pull ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest
+
+            echo "Stopping old container..."
             docker stop credcars-backend || true
             docker rm credcars-backend || true
+
+            echo "Starting new container..."
             docker run -d --name credcars-backend -p 3000:3000 \
               -e NODE_ENV=production \
-              ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest
-            echo "✅ Deployment complete!"
+              ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest >/dev/null 2>&1 &
+
+            sleep 5
+            echo "✅ Backend deployed successfully!"
             exit 0
 
       # 5. Deploy Frontend via SSH

@@ -1,40 +1,36 @@
 # ---------- Build stage ----------
-FROM node:18-bookworm-slim AS builder
+FROM node:18-bullseye-slim AS builder
 
 WORKDIR /app
 
-# Install build tools and dependencies in one layer
+# Install build tools
 RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
-        ca-certificates \
-        python3 \
-        python3-distutils \
-        make \
-        g++ \
-        build-essential \
-        git \
-        curl \
-        wget && \
+       python3 \
+       python3-distutils \
+       make \
+       g++ \
+       git \
+       curl \
+       wget && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy package files and install dependencies
 COPY package*.json ./
-
-# Install only production dependencies first (optional)
 RUN npm ci --omit=dev --unsafe-perm --no-audit --no-fund && npm cache clean --force
 
-# Copy app and build
+# Copy source and build
 COPY . .
-RUN npm run build && npm prune --omit=dev
+RUN npm run build
 
 # ---------- Runtime stage ----------
-FROM node:18-bookworm-slim AS runtime
+FROM node:18-bullseye-slim AS runtime
 
 WORKDIR /app
 
-# Copy production files
-COPY --from=builder /app/node_modules ./node_modules
+# Copy production files only
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
 COPY package*.json ./
 
 ENV NODE_ENV=production

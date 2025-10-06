@@ -1,6 +1,5 @@
 name: Deploy CredCars Full Stack
 
-# Trigger workflow on push to main AND manually
 on:
   push:
     branches:
@@ -12,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout the repo
+      # 1. Checkout code
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -31,13 +30,14 @@ jobs:
             echo "=== Deploying Backend ==="
             cd /home/ubuntu/credcars-backend
 
-            # Ensure server is in sync
-            git fetch origin main
-            git reset --hard origin/main
+            git pull origin main
+
+            # Clean old images to save space
+            docker system prune -af
 
             # Build and start new container
-            docker compose build
-            docker compose up -d --no-deps --build backend_new
+            docker-compose build
+            docker-compose up -d --no-deps --build backend_new
 
             # Wait for healthcheck
             for i in {1..12}; do
@@ -63,10 +63,8 @@ jobs:
             echo "=== Deploying Frontend ==="
             cd /home/ubuntu/credcars-frontend
 
-            git fetch origin main
-            git reset --hard origin/main
-
-            npm install
+            git pull origin main
+            npm ci --omit=dev --unsafe-perm --no-audit --no-fund
             npm run build
 
             # Backup current deployment

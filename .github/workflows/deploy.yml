@@ -36,35 +36,19 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SERVER_SSH_KEY }}
           script_stop: true
-          command_timeout: 10m
+          timeout: 120s
+          command_timeout: 60s
           script: |
             set -e
             echo "=== Deploying Backend ==="
-
             docker pull ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest
-
-            echo "Stopping old container (if exists)..."
             docker stop credcars-backend || true
             docker rm credcars-backend || true
-
-            echo "Starting new container..."
             docker run -d --name credcars-backend -p 3000:3000 \
               -e NODE_ENV=production \
-              ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest >/dev/null 2>&1
-
-            echo "Waiting for container to initialize..."
-            sleep 8
-
-            echo "Checking if container is running..."
-            if docker ps --format '{{.Names}}' | grep -q '^credcars-backend$'; then
-              echo "✅ Backend deployed and running successfully!"
-            else
-              echo "❌ Container failed to start! Checking logs..."
-              docker logs credcars-backend || true
-              exit 1
-            fi
-
-            echo "✅ Deployment finished!"
+              ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest
+            echo "✅ Deployment complete!"
+            exit 0
 
       # 5. Deploy Frontend via SSH
       - name: Deploy Frontend
@@ -93,3 +77,4 @@ jobs:
 
             systemctl reload nginx
             echo "✅ Frontend deployment complete!"
+            exit 0

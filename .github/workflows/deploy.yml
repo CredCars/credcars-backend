@@ -1,6 +1,6 @@
-name: Deploy CredCars Backend
+name: Deploy CredCars Full Stack
 
-# Trigger manually for testing
+# Trigger workflow on push to main AND manually
 on:
   push:
     branches:
@@ -12,52 +12,69 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout the repo (so GitHub Actions has access to workflow files)
-      - name: Checkout repo
+      # 1. Checkout the repo
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2️⃣ Start SSH agent and add server key
-      - name: Setup SSH
+      # 2. Set up SSH
+      - name: Set up SSH
         uses: webfactory/ssh-agent@v0.7.0
         with:
           ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
 
-      # 3️⃣ Test SSH connection (dry-run)
-      - name: Test SSH connection
-        run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@54.235.43.222 'echo "SSH connection successful!"'
-
-      # 4️⃣ Test Git pull on server (dry-run)
-      - name: Test Git pull
+      # 3. Deploy Backend
+      - name: Deploy Backend
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@54.235.43.222 << 'EOF'
-            cd /home/ubuntu/credcars-backend
-            echo "Current git branch and status:"
-            git branch
-            git status
-            echo "Pulling latest changes..."
-            git pull origin main 
-          EOF
+            set -e
 
-      # 5️⃣ Build Docker container (dry-run)
-      - name: Build Docker container
-        run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@54.235.43.222 << 'EOF'
+            echo "=== Deploying Backend ==="
             cd /home/ubuntu/credcars-backend
-            echo "Building new Docker container..."
+            git pull origin main
+
             docker-compose build
             docker-compose up -d --no-deps --build backend_new
-            echo "Checking container health..."
-            STATUS=$(docker inspect --format='{{.State.Health.Status}}' credcars-backend_new)
-            echo "Health status: $STATUS"
+
+            for i in {1..12}; do
+              STATUS=$(docker inspect --format='{{.State.Health.Status}}' credcars-backend_new)
+              if [ "$STATUS" == "healthy" ]; then
+                echo "Backend healthy, swapping containers..."
+                docker stop credcars-backend || true
+                docker rename credcars-backend_new credcars-backend
+                break
+              fi
+              sleep 5
+            done
+
+            echo "Backend deployment done!"
           EOF
-      # 6️⃣ Swap containers (FULL DEPLOY) - only enable after dry-run is successful
-      - name: Swap old container with new (FULL DEPLOY)
-        if: false # ❌ Keep false until ready to fully deploy
+
+      # 4. Deploy Frontend
+      - name: Deploy Frontend
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@54.235.43.222 << 'EOF'
-            echo "Stopping old container (if exists)..."
-            docker stop credcars-backend || true
-            echo "Renaming new container..."
-            docker rename credcars-backend_new credcars-backend
+            set -e
+
+            echo "=== Deploying Frontend ==="
+            cd /home/ubuntu/credcars-frontend
+            git pull origin main
+
+            npm install
+            npm run build
+
+            # Backup current deployment
+            mv /var/www/app/dist /var/www/app/dist.bak || true
+
+            # Deploy new build
+            rm -rf /var/www/app/dist
+            cp -r dist /var/www/app/
+
+            # Fix permissions
+            chown -R ubuntu:www-data /var/www/app/dist
+            chmod -R 755 /var/www/app/dist
+
+            # Reload Nginx
+            systemctl reload nginx
+
+            echo "Frontend deployment done!"
           EOF

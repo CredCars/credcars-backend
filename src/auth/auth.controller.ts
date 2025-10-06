@@ -52,7 +52,7 @@ export class AuthController {
       return this.responseService.json(
         res,
         201,
-        'User registered successfully',
+        'User registered successfullyyyy',
         user,
       );
     } catch (error) {

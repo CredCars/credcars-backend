@@ -15,9 +15,16 @@ RUN apt-get update -y && \
        wget && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy package files and install dependencies
+
+# Install Node dependencies
 COPY package*.json ./
-RUN npm ci --omit=dev --unsafe-perm --no-audit --no-fund && npm cache clean --force
+
+# Upgrade npm
+RUN npm install -g npm@11.6.1
+
+# Install dependencies
+RUN npm install --omit=dev --unsafe-perm --no-audit --no-fund && npm cache clean --force
+
 
 # Copy source and build
 COPY . .

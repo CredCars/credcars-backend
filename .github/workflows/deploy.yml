@@ -68,9 +68,12 @@ jobs:
             docker rm credcars-backend || true
 
             echo "Starting new backend container..."
+
             docker run -d --name credcars-backend -p 3000:3000 \
               -e NODE_ENV=production \
-              ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest >/dev/null 2>&1 &
+              -e JWT_SECRET=${{ secrets.JWT_SECRET }} \
+              -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
+              ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest
 
             sleep 5
             echo "✅ Backend deployed successfully!"

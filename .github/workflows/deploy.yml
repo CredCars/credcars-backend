@@ -30,11 +30,16 @@ jobs:
 
             echo "=== Deploying Backend ==="
             cd /home/ubuntu/credcars-backend
-            git pull origin main
 
-            docker-compose build
-            docker-compose up -d --no-deps --build backend_new
+            # Ensure server is in sync
+            git fetch origin main
+            git reset --hard origin/main
 
+            # Build and start new container
+            docker compose build
+            docker compose up -d --no-deps --build backend_new
+
+            # Wait for healthcheck
             for i in {1..12}; do
               STATUS=$(docker inspect --format='{{.State.Health.Status}}' credcars-backend_new)
               if [ "$STATUS" == "healthy" ]; then
@@ -57,7 +62,9 @@ jobs:
 
             echo "=== Deploying Frontend ==="
             cd /home/ubuntu/credcars-frontend
-            git pull origin main
+
+            git fetch origin main
+            git reset --hard origin/main
 
             npm install
             npm run build

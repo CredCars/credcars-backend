@@ -37,46 +37,45 @@ jobs:
       # 5. Deploy Backend on server
       - name: Deploy Backend
         run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@54.235.43.222 << 'EOF'
-            set -e
-            echo "=== Deploying Backend ==="
-            cd /home/ubuntu/credcars-backend
+          ssh -T -o StrictHostKeyChecking=no ubuntu@54.235.43.222 << 'EOF'
+          set -e
+          echo "=== Deploying Backend ==="
+          cd /home/ubuntu/credcars-backend
 
-            # Pull latest image from Docker Hub
-            docker pull ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest
+          # Pull latest image from Docker Hub
+          docker pull ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest
 
-            # Stop old container (if exists)
-            docker stop credcars-backend || true
-            docker rm credcars-backend || true
+          # Stop old container (if exists)
+          docker stop credcars-backend || true
+          docker rm credcars-backend || true
 
-            # Start new container
-            docker run -d --name credcars-backend -p 3000:3000 \
-              -e NODE_ENV=production \
-              ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest
+          # Start new container
+          docker run -d --name credcars-backend -p 3000:3000 \
+            -e NODE_ENV=production \
+            ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest
 
-            echo "Backend deployment done!"
+          echo "Backend deployment done!"
           EOF
 
       # 6. Deploy Frontend on server
       - name: Deploy Frontend
         run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@54.235.43.222 << 'EOF'
-            set -e
-            echo "=== Deploying Frontend ==="
-            cd /home/ubuntu/credcars-frontend
+          ssh -T -o StrictHostKeyChecking=no ubuntu@54.235.43.222 << 'EOF'
+          set -e
+          echo "=== Deploying Frontend ==="
+          cd /home/ubuntu/credcars-frontend
 
-            git pull origin main
-            npm ci --omit=dev --unsafe-perm --no-audit --no-fund
-            npm run build
+          git pull origin main
+          npm ci --omit=dev --unsafe-perm --no-audit --no-fund
+          npm run build
 
-            mv /var/www/app/dist /var/www/app/dist.bak || true
-            rm -rf /var/www/app/dist
-            cp -r dist /var/www/app/
+          mv /var/www/app/dist /var/www/app/dist.bak || true
+          rm -rf /var/www/app/dist
+          cp -r dist /var/www/app/
 
-            chown -R ubuntu:www-data /var/www/app/dist
-            chmod -R 755 /var/www/app/dist
+          chown -R ubuntu:www-data /var/www/app/dist
+          chmod -R 755 /var/www/app/dist
 
-            systemctl reload nginx
-
-            echo "Frontend deployment done!"
+          systemctl reload nginx
+          echo "Frontend deployment done!"
           EOF

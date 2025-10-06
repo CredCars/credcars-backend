@@ -1,5 +1,6 @@
 name: Deploy CredCars Full Stack
 
+# Trigger on push to main or manual run
 on:
   push:
     branches:
@@ -11,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout code
+      # 1. Checkout the repo
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -26,30 +27,17 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@54.235.43.222 << 'EOF'
             set -e
-
             echo "=== Deploying Backend ==="
             cd /home/ubuntu/credcars-backend
 
+            # Pull latest code
             git pull origin main
 
-            # Clean old images to save space
-            docker system prune -af
+            # Optional: clean unused Docker objects to free space
+            docker system prune -af || true
 
-            # Build and start new container
-            docker-compose build
-            docker-compose up -d --no-deps --build backend_new
-
-            # Wait for healthcheck
-            for i in {1..12}; do
-              STATUS=$(docker inspect --format='{{.State.Health.Status}}' credcars-backend_new)
-              if [ "$STATUS" == "healthy" ]; then
-                echo "Backend healthy, swapping containers..."
-                docker stop credcars-backend || true
-                docker rename credcars-backend_new credcars-backend
-                break
-              fi
-              sleep 5
-            done
+            # Build and start backend service
+            docker-compose up -d --build backend
 
             echo "Backend deployment done!"
           EOF
@@ -59,11 +47,16 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@54.235.43.222 << 'EOF'
             set -e
-
             echo "=== Deploying Frontend ==="
             cd /home/ubuntu/credcars-frontend
 
+            # Pull latest code
             git pull origin main
+
+            # Clean npm cache to avoid disk space issues
+            rm -rf /home/ubuntu/.npm
+
+            # Install dependencies and build
             npm ci --omit=dev --unsafe-perm --no-audit --no-fund
             npm run build
 

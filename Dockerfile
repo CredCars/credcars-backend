@@ -10,10 +10,8 @@ RUN apt-get update -y && \
     apt-get install -y --no-install-recommends \
        ca-certificates \
        python3 \
-       python3-distutils \
        make \
        g++ \
-       build-essential \
        git \
        curl \
        wget && \
@@ -21,7 +19,8 @@ RUN apt-get update -y && \
 
 # Copy package files and install dependencies
 COPY package*.json ./
-# Use npm install instead of npm ci to avoid issues on Node 18
+
+# Use npm install instead of npm ci to avoid Node 18 issues
 RUN npm install --unsafe-perm --no-audit --no-fund && npm cache clean --force
 
 # Copy app source and build
@@ -33,7 +32,7 @@ FROM node:18-bookworm-slim AS runtime
 
 WORKDIR /app
 
-# Copy production node_modules and build
+# Copy production node_modules and build from builder
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY package*.json ./

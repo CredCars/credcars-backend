@@ -1,4 +1,4 @@
-name: Deploy CredCars Full Stack
+name: Deploy CredCars Backend
 
 on:
   push:
@@ -15,29 +15,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2. Set up Node.js (for both backend and frontend testing)
+      # 2. Set up Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 20
+          node-version: 18
 
-      # 3. Run Backend Tests
-      # - name: Run Backend Tests
-      #   run: |
-      #     echo "=== Running Backend Tests ==="
-      #     cd credcars-backend
-      #     npm ci --unsafe-perm --no-audit --no-fund
-      #     npm run test --if-present
-      #     echo "✅ Backend tests passed!"
+      # 3. Install dependencies
+      - name: Install dependencies
+        run: npm ci --unsafe-perm --no-audit --no-fund
 
-      # # 4. Run Frontend Tests
-      # - name: Run Frontend Tests
-      #   run: |
-      #     echo "=== Running Frontend Tests ==="
-      #     cd credcars-frontend
-      #     npm ci --unsafe-perm --no-audit --no-fund
-      #     npm run test --if-present
-      #     echo "✅ Frontend tests passed!"
+      # 4. Run backend tests
+      - name: Run backend tests
+        run: |
+          echo "=== Running Backend Tests ==="
+          npm run test --if-present
+          echo "✅ Backend tests passed!"
 
       # 5. Log in to Docker Hub
       - name: Log in to Docker Hub
@@ -46,13 +39,11 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 6. Build and push backend Docker image
+      # 6. Build and push Docker image
       - name: Build and push backend image
         run: |
-          echo "=== Building Backend Docker Image ==="
           docker build -t ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest .
           docker push ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest
-          echo "✅ Backend image pushed to Docker Hub!"
 
       # 7. Deploy Backend via SSH
       - name: Deploy Backend to Server
@@ -71,50 +62,9 @@ jobs:
             docker pull ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest
             docker stop credcars-backend || true
             docker rm credcars-backend || true
-
-            echo "Starting new backend container..."
             docker run -d --name credcars-backend -p 3000:3000 \
               -e NODE_ENV=production \
               ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest >/dev/null 2>&1 &
 
             sleep 5
             echo "✅ Backend deployed successfully!"
-
-      # 8. Build Frontend Locally
-      - name: Build Frontend
-        run: |
-          echo "=== Building Frontend Locally ==="
-          cd credcars-frontend
-          npm ci --unsafe-perm --no-audit --no-fund
-          npm run build
-          echo "✅ Frontend build complete!"
-
-      # 9. Upload dist folder to server
-      - name: Upload Frontend Dist to Server
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ubuntu
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          source: 'credcars-frontend/dist/*'
-          target: '/var/www/app/dist'
-          strip_components: 2
-
-      # 10. Final setup on server
-      - name: Final Frontend Setup
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ubuntu
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          timeout: 120s
-          command_timeout: 60s
-          script: |
-            set -e
-            echo "=== Finalizing Frontend Setup ==="
-
-            sudo chown -R ubuntu:www-data /var/www/app/dist
-            sudo chmod -R 755 /var/www/app/dist
-            sudo systemctl reload nginx
-
-            echo "✅ Frontend deployed successfully!"

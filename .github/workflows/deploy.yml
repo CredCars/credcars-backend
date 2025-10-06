@@ -61,7 +61,7 @@ jobs:
       - name: Build Frontend
         run: |
           echo "=== Building Frontend Locally ==="
-          cd frontend
+          cd credcars-frontend
           npm ci --unsafe-perm --no-audit --no-fund
           npm run build
           echo "✅ Frontend build complete!"
@@ -73,7 +73,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ubuntu
           key: ${{ secrets.SERVER_SSH_KEY }}
-          source: 'frontend/dist/*'
+          source: 'credcars-frontend/dist/*'
           target: '/var/www/app/dist'
           strip_components: 2
 

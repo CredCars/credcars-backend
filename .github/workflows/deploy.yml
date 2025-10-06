@@ -38,6 +38,8 @@ jobs:
           timeout: 120s
           command_timeout: 60s
           script: |
+            mkdir -p ~/.ssh
+            ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
             set -e
             echo "=== Deploying Backend ==="
 

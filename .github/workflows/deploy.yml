@@ -36,16 +36,16 @@ jobs:
             git reset --hard origin/main
 
             # Build and start new container
-            docker compose build
-            docker compose up -d --no-deps --build backend_new
+            sudo docker compose build
+            sudo docker compose up -d --no-deps --build backend_new
 
             # Wait for healthcheck
             for i in {1..12}; do
-              STATUS=$(docker inspect --format='{{.State.Health.Status}}' credcars-backend_new)
+              STATUS=$(sudo docker inspect --format='{{.State.Health.Status}}' credcars-backend_new)
               if [ "$STATUS" == "healthy" ]; then
                 echo "Backend healthy, swapping containers..."
-                docker stop credcars-backend || true
-                docker rename credcars-backend_new credcars-backend
+                sudo docker stop credcars-backend || true
+                sudo docker rename credcars-backend_new credcars-backend
                 break
               fi
               sleep 5

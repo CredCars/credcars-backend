@@ -36,38 +36,35 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SERVER_SSH_KEY }}
           script_stop: true
-          command_timeout: 20m
+          command_timeout: 10m
           script: |
             set -e
             echo "=== Deploying Backend ==="
-            cd /home/ubuntu/credcars-backend
 
-            echo "Pulling latest image..."
             docker pull ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest
 
-            echo "Stopping old container..."
+            echo "Stopping old container (if exists)..."
             docker stop credcars-backend || true
             docker rm credcars-backend || true
 
             echo "Starting new container..."
             docker run -d --name credcars-backend -p 3000:3000 \
               -e NODE_ENV=production \
-              ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest >/dev/null 2>&1 &
+              ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest >/dev/null 2>&1
 
-            echo "Waiting for container to start..."
-            sleep 10
+            echo "Waiting for container to initialize..."
+            sleep 8
 
-            if ! docker ps | grep -q credcars-backend; then
-              echo "❌ Backend container failed to start! Rolling back..."
-              docker stop credcars-backend || true
-              docker rm credcars-backend || true
-              docker run -d --name credcars-backend -p 3000:3000 \
-                -e NODE_ENV=production \
-                ${{ secrets.DOCKER_USERNAME }}/credcars-backend:previous >/dev/null 2>&1 || true
+            echo "Checking if container is running..."
+            if docker ps --format '{{.Names}}' | grep -q '^credcars-backend$'; then
+              echo "✅ Backend deployed and running successfully!"
+            else
+              echo "❌ Container failed to start! Checking logs..."
+              docker logs credcars-backend || true
               exit 1
             fi
 
-            echo "✅ Backend deployed and running successfully!"
+            echo "✅ Deployment finished!"
 
       # 5. Deploy Frontend via SSH
       - name: Deploy Frontend

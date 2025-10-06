@@ -25,7 +25,7 @@ jobs:
       - name: Run Backend Tests
         run: |
           echo "=== Running Backend Tests ==="
-          cd backend
+          cd credcars-backend
           npm ci --unsafe-perm --no-audit --no-fund
           npm run test --if-present
           echo "✅ Backend tests passed!"

@@ -64,6 +64,9 @@ jobs:
             set -e
             echo "=== Deploying Backend ==="
 
+            # Navigate to backend folder
+            cd /home/ubuntu/credcars-backend || true
+
             # Stop and remove any old container
             docker stop credcars-backend || true
             docker rm credcars-backend || true
@@ -72,12 +75,11 @@ jobs:
             echo "Pulling latest image..."
             docker pull ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest
 
-            # Start new container
+            # Start new container with .env
             echo "Starting new backend container..."
             docker run -d --name credcars-backend -p 3000:3000 \
+              --env-file /home/ubuntu/credcars-backend/.env \
               -e NODE_ENV=production \
-              -e JWT_SECRET='${{ secrets.JWT_SECRET }}' \
-              -e DATABASE_URL='${{ secrets.DATABASE_URL }}' \
               ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest
 
             sleep 5

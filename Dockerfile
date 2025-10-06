@@ -19,7 +19,9 @@ RUN apt-get update -y && \
 
 # Copy package files and install dependencies
 COPY package*.json ./
-RUN npm install --unsafe-perm --no-audit --no-fund && npm cache clean --force
+
+# Install only production dependencies first (optional)
+RUN npm ci --omit=dev --unsafe-perm --no-audit --no-fund && npm cache clean --force
 
 # Copy app and build
 COPY . .

@@ -82,7 +82,6 @@ jobs:
       - name: Build Frontend
         run: |
           echo "=== Building Frontend Locally ==="
-          cd credcars-frontend
           npm ci --unsafe-perm --no-audit --no-fund
           npm run build
           echo "✅ Frontend build complete!"

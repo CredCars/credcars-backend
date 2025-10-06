@@ -83,7 +83,7 @@ describe('AuthController', () => {
       expect(responseService.json).toHaveBeenCalledWith(
         mockResponse,
         201,
-        'User registered successfullyyyy',
+        'User registered successfully',
         mockUser,
       );
     });

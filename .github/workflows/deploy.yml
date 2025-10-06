@@ -35,11 +35,10 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ubuntu
           key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
           timeout: 120s
           command_timeout: 60s
           script: |
-            mkdir -p ~/.ssh
-            ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
             set -e
             echo "=== Deploying Backend ==="
 
@@ -52,8 +51,8 @@ jobs:
 
             echo "Starting new container..."
             docker run -d --name credcars-backend -p 3000:3000 \
-              -e NODE_ENV=production \
-              ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest >/dev/null 2>&1 &
+            -e NODE_ENV=production \
+            ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest >/dev/null 2>&1 &
 
             sleep 5
             echo "✅ Backend deployed successfully!"

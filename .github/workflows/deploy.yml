@@ -31,7 +31,7 @@ jobs:
       # 4. Build Docker image and push to Docker Hub
       - name: Build and push Docker image
         run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest ./backend
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest .
           docker push ${{ secrets.DOCKER_USERNAME }}/credcars-backend:latest
 
       # 5. Deploy Backend on server

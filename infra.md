@@ -1,7 +1,7 @@
 CredCars Infrastructure Documentation
 📘 Overview
 
-CredCars is a web-based property and automobile management platform connecting property owners, managers, and tenants.
+CredCars is a web-based automobile management platform.
 It has two environments: Production and Staging, both hosted on separate AWS EC2 instances.
 
 Each environment uses:

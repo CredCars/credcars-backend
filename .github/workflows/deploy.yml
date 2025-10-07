@@ -33,7 +33,7 @@ jobs:
         run: |
           echo "=== Running Backend Tests ==="
           npm run test --if-present
-          echo "✅ Backend tests passed!"
+          echo "✅ Backend tests passed! "
 
       # 5️⃣ Log in to Docker Hub
       - name: Log in to Docker Hub

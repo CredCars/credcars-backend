@@ -1,82 +1,82 @@
-name: Deploy CredCars Backend (Staging)
+# name: Deploy CredCars Backend (Staging)
 
-on:
-  push:
-    branches:
-      - dev # deploy staging from dev branch
-  workflow_dispatch:
+# on:
+#   push:
+#     branches:
+#       - dev # deploy staging from dev branch
+#   workflow_dispatch:
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
 
-    steps:
-      # 1️⃣ Checkout code
-      - name: Checkout code
-        uses: actions/checkout@v3
+#     steps:
+#       # 1️⃣ Checkout code
+#       - name: Checkout code
+#         uses: actions/checkout@v3
 
-      # 2️⃣ Set up Node.js
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 20
+#       # 2️⃣ Set up Node.js
+#       - name: Set up Node.js
+#         uses: actions/setup-node@v3
+#         with:
+#           node-version: 20
 
-      # 3️⃣ Install dependencies
-      - name: Install Backend Dependencies
-        run: |
-          echo "=== Installing Backend Dependencies ==="
-          npm ci --unsafe-perm --no-audit --no-fund
-          echo "✅ Dependencies installed successfully!"
+#       # 3️⃣ Install dependencies
+#       - name: Install Backend Dependencies
+#         run: |
+#           echo "=== Installing Backend Dependencies ==="
+#           npm ci --unsafe-perm --no-audit --no-fund
+#           echo "✅ Dependencies installed successfully!"
 
-      # 4️⃣ Run tests
-      - name: Run Backend Tests
-        run: |
-          echo "=== Running Backend Tests ==="
-          npm run test --if-present
-          echo "✅ Backend tests passed! "
+#       # 4️⃣ Run tests
+#       - name: Run Backend Tests
+#         run: |
+#           echo "=== Running Backend Tests ==="
+#           npm run test --if-present
+#           echo "✅ Backend tests passed! "
 
-      # 5️⃣ Log in to Docker Hub
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+#       # 5️⃣ Log in to Docker Hub
+#       - name: Log in to Docker Hub
+#         uses: docker/login-action@v2
+#         with:
+#           username: ${{ secrets.DOCKER_USERNAME }}
+#           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # 6️⃣ Build & push Docker image
-      - name: Build and Push Backend Image
-        run: |
-          echo "=== Building Backend Docker Image (Staging) ==="
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/credcars-backend-staging:latest .
-          docker push ${{ secrets.DOCKER_USERNAME }}/credcars-backend-staging:latest
-          echo "✅ Backend image pushed to Docker Hub!"
+#       # 6️⃣ Build & push Docker image
+#       - name: Build and Push Backend Image
+#         run: |
+#           echo "=== Building Backend Docker Image (Staging) ==="
+#           docker build -t ${{ secrets.DOCKER_USERNAME }}/credcars-backend-staging:latest .
+#           docker push ${{ secrets.DOCKER_USERNAME }}/credcars-backend-staging:latest
+#           echo "✅ Backend image pushed to Docker Hub!"
 
-      # 7️⃣ Deploy on staging server
-      - name: Deploy Backend to Staging Server
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.STAGING_SERVER_HOST }}
-          username: ubuntu
-          key: ${{ secrets.STAGING_SERVER_SSH_KEY }}
-          port: 22
-          timeout: 120s
-          command_timeout: 60s
-          script: |
-            set -e
-            echo "=== Deploying Backend to Staging ==="
+#       # 7️⃣ Deploy on staging server
+#       - name: Deploy Backend to Staging Server
+#         uses: appleboy/ssh-action@master
+#         with:
+#           host: ${{ secrets.STAGING_SERVER_HOST }}
+#           username: ubuntu
+#           key: ${{ secrets.STAGING_SERVER_SSH_KEY }}
+#           port: 22
+#           timeout: 120s
+#           command_timeout: 60s
+#           script: |
+#             set -e
+#             echo "=== Deploying Backend to Staging ==="
 
-            # Stop and remove old container
-            docker stop credcars-backend-staging || true
-            docker rm credcars-backend-staging || true
+#             # Stop and remove old container
+#             docker stop credcars-backend-staging || true
+#             docker rm credcars-backend-staging || true
 
-            # Pull latest staging image
-            docker pull ${{ secrets.DOCKER_USERNAME }}/credcars-backend-staging:latest
+#             # Pull latest staging image
+#             docker pull ${{ secrets.DOCKER_USERNAME }}/credcars-backend-staging:latest
 
-            # Start new container with .env
-            echo "Starting new backend container..."
-            docker run -d --name credcars-backend-staging -p 3001:3000 \
-              --env-file /home/ubuntu/credcars-backend/.env \
-              -e NODE_ENV=development \
-              ${{ secrets.DOCKER_USERNAME }}/credcars-backend-staging:latest
+#             # Start new container with .env
+#             echo "Starting new backend container..."
+#             docker run -d --name credcars-backend-staging -p 3001:3000 \
+#               --env-file /home/ubuntu/credcars-backend/.env \
+#               -e NODE_ENV=development \
+#               ${{ secrets.DOCKER_USERNAME }}/credcars-backend-staging:latest
 
-            sleep 5
-            echo "✅ Backend deployed to staging successfully!"
+#             sleep 5
+#             echo "✅ Backend deployed to staging successfully!"

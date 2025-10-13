@@ -62,7 +62,7 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter(logger));
   app.useLogger(logger);
 
-  const port = configuration().port;
+  const port = process.env.PORT || configuration().port || 8080;
   await app.listen(port, '0.0.0.0');
   console.log(`App is running on port ${port}`);
 }

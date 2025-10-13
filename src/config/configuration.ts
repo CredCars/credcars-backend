@@ -14,7 +14,7 @@ export interface Configuration {
 }
 
 export default (): Configuration => ({
-  port: parseInt(process.env.PORT, 10) || 3000,
+  port: parseInt(process.env.PORT, 10) || 8080,
   database: {
     uri: process.env.MONGODB_URI,
   },

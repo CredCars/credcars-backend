@@ -1,32 +1,9 @@
-# Node dependencies
-node_modules
-npm-debug.log
-yarn-error.log
+# Ignore everything
+*
 
-# Git
-.git
-.gitignore
-
-# Source code (we only need compiled dist/)
-src
-test
-*.md
-*.log
-tmp
-.env
-.env.*
-
-# Docker and local configs
-docker-compose.yml
-Dockerfile
-.vscode
-.idea
-
-# OS files
-.DS_Store
-
-# Include what's needed for EB
+# Include only these necessary files
 !dist/
 !package.json
 !package-lock.json
 !Procfile
+!.ebextensions/

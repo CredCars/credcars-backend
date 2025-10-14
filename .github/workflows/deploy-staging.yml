@@ -38,7 +38,7 @@ jobs:
 
       - name: Upload artifact to S3
         run: |
-          aws s3 cp app.zip s3://elasticbeanstalk-${{ secrets.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}.zip
+          aws s3 cp app.zip s3://elasticbeanstalk-${{ secrets.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}/app.zip
 
       - name: Install EB CLI
         run: pip install --upgrade awsebcli

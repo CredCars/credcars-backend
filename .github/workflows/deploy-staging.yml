@@ -1,22 +1,22 @@
-name: Deploy to Elastic Beanstalk
+name: CI/CD NestJS → Elastic Beanstalk
 
 on:
   push:
     branches:
-      - dev
+      - dev    # deploy to staging
+      - main   # deploy to production
 
 jobs:
-  deploy:
-    name: Deploy App to AWS Elastic Beanstalk
+  build-and-test:
+    name: Build & Test
     runs-on: ubuntu-latest
-
     steps:
       # 1. Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Set up Node.js
-      - name: Set up Node.js
+      # 2. Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -25,29 +25,43 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 4. Build NestJS project
+      # 4. Run lint
+      - name: Lint
+        run: npm run lint
+
+      # 5. Run unit tests
+      - name: Run tests
+        run: npm test -- --coverage
+
+      # 6. Build artifact
       - name: Build project
         run: npm run build
 
-      # 5. Prepare deployment package
-      - name: Prepare deployment package
+      # 7. Package artifact
+      - name: Package artifact
         run: |
-          mkdir -p deploy
-          cp package.json package-lock.json Procfile deploy/
-          cp -r dist deploy/dist
-          if [ -d ".ebextensions" ]; then cp -r .ebextensions deploy/.ebextensions; fi
-          
-          echo "==== DEPLOY DIRECTORY STRUCTURE ===="
-          ls -R deploy
+          zip -r app.zip \
+            package.json package-lock.json dist/ Procfile .ebextensions/ -x "*.git*" "node_modules/*"
 
-          cd deploy
-          zip -r ../app.zip .
-          cd ..
+      # Upload artifact for deployment
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: eb-artifact
+          path: app.zip
 
-          echo "==== ZIP CONTENTS ===="
-          unzip -l app.zip | grep dist || echo "⚠️ dist folder missing!"
+  deploy:
+    name: Deploy to Elastic Beanstalk
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: eb-artifact
+          path: .
 
-      # 6. Configure AWS credentials
+      # Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
@@ -55,22 +69,32 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # 7. Upload artifact to S3
-      - name: Upload artifact to S3
-        run: |
-          aws s3 cp app.zip s3://elasticbeanstalk-${{ secrets.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}/app-${{ github.run_number }}.zip
-
-      # 8. Install EB CLI
+      # Install EB CLI
       - name: Install EB CLI
         run: pip install --upgrade awsebcli
 
-      # 9. Deploy to Elastic Beanstalk
-      - name: Deploy to Elastic Beanstalk
+      # Deploy to the appropriate environment
+      - name: Deploy to EB
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           EB_APP_NAME: ${{ secrets.EB_APP_NAME }}
-          EB_ENV_NAME: ${{ secrets.EB_ENV_NAME }}
+          EB_ENV_NAME_STAGING: ${{ secrets.EB_ENV_NAME_STAGING }}
+          EB_ENV_NAME_PROD: ${{ secrets.EB_ENV_NAME_PROD }}
         run: |
-          eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION
-          eb use $EB_ENV_NAME
-          eb deploy --staged --label app-${{ github.run_number }}
+          # Select environment based on branch
+          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
+            ENV_NAME=$EB_ENV_NAME_PROD
+          else
+            ENV_NAME=$EB_ENV_NAME_STAGING
+          fi
+
+          echo "Deploying to environment: $ENV_NAME"
+
+          # Initialize EB if needed
+          eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION --verbose
+
+          # Use the environment
+          eb use $ENV_NAME
+
+          # Deploy artifact
+          eb deploy --staged --label "app-${GITHUB_RUN_NUMBER}" --verbose

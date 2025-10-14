@@ -53,4 +53,5 @@ jobs:
         run: |
           eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION
           eb use $EB_ENV_NAME
-          eb deploy --version "app-${GITHUB_RUN_NUMBER}"
+          eb deploy
+

@@ -3,7 +3,7 @@ name: Deploy to Elastic Beanstalk
 on:
   push:
     branches:
-      - dev   
+      - dev
 
 jobs:
   deploy:
@@ -25,28 +25,26 @@ jobs:
       - name: Build project
         run: npm run build
 
-      - name: Zip project for EB
+      - name: Prepare deployment package
         run: |
-          zip -r app.zip . -x ".git/*" "node_modules/*" "test/*"
+          zip -r app.zip package.json package-lock.json dist/ .ebextensions/ -x "*.git*" "node_modules/*"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Upload artifact to S3
+        run: |
+          aws s3 cp app.zip s3://elasticbeanstalk-${{ secrets.AWS_ACCOUNT_ID }}/${{ github.run_number }}.zip
 
       - name: Install EB CLI
         run: pip install --upgrade awsebcli
 
-      - name: Configure AWS CLI
-        run: aws configure set region ${{ secrets.AWS_REGION }}
-
-      - name: Upload archive to S3
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-        run: |
-          aws s3 cp app.zip s3://elasticbeanstalk-$AWS_REGION-211289421537/app-${GITHUB_RUN_NUMBER}.zip
-
       - name: Deploy to Elastic Beanstalk
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
           EB_APP_NAME: ${{ secrets.EB_APP_NAME }}
           EB_ENV_NAME: ${{ secrets.EB_ENV_NAME }}
@@ -54,4 +52,3 @@ jobs:
           eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION
           eb use $EB_ENV_NAME
           eb deploy
-

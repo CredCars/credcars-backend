@@ -27,11 +27,7 @@ jobs:
 
       - name: Prepare deployment package
         run: |
-          mkdir deploy
-          cp package.json package-lock.json -r dist/ .ebextensions/ deploy/
-          cd deploy
-          zip -r ../app.zip .
-          cd ..
+          zip -r app.zip package.json package-lock.json dist/ .ebextensions/ -x "*.git*" "node_modules/*"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
@@ -39,10 +35,6 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: Upload artifact to S3
-        run: |
-          aws s3 cp app.zip s3://elasticbeanstalk-${{ secrets.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}/app-${{ github.run_number }}.zip
 
       - name: Install EB CLI
         run: pip install --upgrade awsebcli
@@ -55,4 +47,4 @@ jobs:
         run: |
           eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION
           eb use $EB_ENV_NAME
-          eb deploy --staged --label "app-${{ github.run_number }}"
+          eb deploy --staged --label "deploy-${{ github.run_number }}"

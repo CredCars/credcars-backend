@@ -35,6 +35,9 @@ jobs:
           zip -r app.zip \
             package.json package-lock.json dist/ Procfile .ebextensions/ -x "*.git*" "node_modules/*"
 
+      - name: Verify dist folder
+        run: ls -R dist
+
       # 6. Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3

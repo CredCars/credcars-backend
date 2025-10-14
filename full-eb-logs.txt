@@ -1,0 +1,4 @@
+Retrieving logs...
+Logs were saved to /Users/mac-os/Documents/credcars/backend/.elasticbeanstalk/logs/251014_090024
+Logs were saved to /Users/mac-os/Documents/credcars/backend/.elasticbeanstalk/logs/251014_090024
+Updated symlink at /Users/mac-os/Documents/credcars/backend/.elasticbeanstalk/logs/latest

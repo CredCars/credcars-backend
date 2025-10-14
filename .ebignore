@@ -7,7 +7,7 @@ yarn-error.log
 .git
 .gitignore
 
-# Source and build junk
+# Source code (we only deploy build)
 src
 test
 *.md
@@ -25,8 +25,9 @@ Dockerfile
 # OS files
 .DS_Store
 
-# Only include what's needed for EB
+# Include build artifacts and EB config
 !dist/
 !package.json
 !package-lock.json
 !Procfile
+!.ebextensions/

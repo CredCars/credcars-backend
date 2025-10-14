@@ -60,10 +60,13 @@ jobs:
           EB_ENV_NAME: ${{ secrets.EB_ENV_NAME }}
         run: |
           # Initialize EB if needed
-          eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION
+          eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION --verbose
 
           # Use environment
           eb use $EB_ENV_NAME
 
-          # Deploy specific version (avoid caching issues)
-          eb deploy --staged --label app-${{ github.run_number }}
+          # Create a new application version pointing to the exact zip you uploaded
+          eb appversion create --label app-${{ github.run_number }} --source-bundle S3Bucket="elasticbeanstalk-${{ secrets.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}",S3Key="app-${{ github.run_number }}.zip"
+
+          # Deploy that version
+          eb deploy --label app-${{ github.run_number }} --verbose

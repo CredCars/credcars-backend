@@ -1,0 +1,32 @@
+# Node dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Git
+.git
+.gitignore
+
+# Source and build junk
+src
+test
+*.md
+*.log
+tmp
+.env
+.env.*
+
+# Docker and local configs
+docker-compose.yml
+Dockerfile
+.vscode
+.idea
+
+# OS files
+.DS_Store
+
+# Only include what's needed for EB
+!dist/
+!package.json
+!package-lock.json
+!Procfile

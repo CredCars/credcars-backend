@@ -25,8 +25,19 @@ jobs:
       - name: Build project
         run: npm run build
 
+      - name: Zip project for EB
+        run: |
+          zip -r app.zip . -x ".git/*" "node_modules/*" "test/*"
+
       - name: Install EB CLI
-        run: pip install awsebcli
+        run: pip install --upgrade awsebcli
+
+      - name: Configure AWS CLI
+        run: aws configure set region ${{ secrets.AWS_REGION }}
+
+      - name: Upload archive to S3
+        run: |
+          aws s3 cp app.zip s3://elasticbeanstalk-${{ secrets.AWS_REGION }}-211289421537/app-${GITHUB_RUN_NUMBER}.zip
 
       - name: Deploy to Elastic Beanstalk
         env:
@@ -38,4 +49,4 @@ jobs:
         run: |
           eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION
           eb use $EB_ENV_NAME
-          eb deploy
+          eb deploy --version "app-${GITHUB_RUN_NUMBER}"

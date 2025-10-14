@@ -29,20 +29,25 @@ jobs:
       - name: Build project
         run: npm run build
 
-      # 5. Verify dist folder exists (for debugging)
-      - name: Verify dist folder
-        run: ls -R dist
-
-      # 6. Prepare deployment package
+      # 5. Prepare deployment package
       - name: Prepare deployment package
         run: |
           mkdir -p deploy
           cp package.json package-lock.json Procfile deploy/
-          cp -r dist deploy/
+          cp -r dist deploy/dist
           if [ -d ".ebextensions" ]; then cp -r .ebextensions deploy/.ebextensions; fi
-          cd deploy && zip -r ../app.zip . && cd ..
+          
+          echo "==== DEPLOY DIRECTORY STRUCTURE ===="
+          ls -R deploy
 
-      # 7. Configure AWS credentials
+          cd deploy
+          zip -r ../app.zip .
+          cd ..
+
+          echo "==== ZIP CONTENTS ===="
+          unzip -l app.zip | grep dist || echo "⚠️ dist folder missing!"
+
+      # 6. Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
@@ -50,23 +55,22 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      # 7. Upload artifact to S3
+      - name: Upload artifact to S3
+        run: |
+          aws s3 cp app.zip s3://elasticbeanstalk-${{ secrets.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}/app-${{ github.run_number }}.zip
+
       # 8. Install EB CLI
       - name: Install EB CLI
         run: pip install --upgrade awsebcli
 
-      # 9. Initialize Elastic Beanstalk (safe even if already initialized)
-      - name: Initialize EB
+      # 9. Deploy to Elastic Beanstalk
+      - name: Deploy to Elastic Beanstalk
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           EB_APP_NAME: ${{ secrets.EB_APP_NAME }}
-        run: |
-          eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION --verbose || true
-
-      # 10. Deploy to Elastic Beanstalk
-      - name: Deploy to Elastic Beanstalk
-        env:
-          EB_APP_NAME: ${{ secrets.EB_APP_NAME }}
           EB_ENV_NAME: ${{ secrets.EB_ENV_NAME }}
         run: |
+          eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION
           eb use $EB_ENV_NAME
-          eb deploy --label app-${{ github.run_number }} --staged --verbose
+          eb deploy --staged --label app-${{ github.run_number }}

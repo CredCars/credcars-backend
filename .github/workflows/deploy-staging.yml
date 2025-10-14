@@ -29,16 +29,20 @@ jobs:
       - name: Build project
         run: npm run build
 
-      # 5. Prepare deployment package
-      - name: Prepare deployment package
-        run: |
-          zip -r app.zip \
-            package.json package-lock.json dist/ Procfile .ebextensions/ -x "*.git*" "node_modules/*"
-
+      # 5. Verify dist folder exists (for debugging)
       - name: Verify dist folder
         run: ls -R dist
 
-      # 6. Configure AWS credentials
+      # 6. Prepare deployment package
+      - name: Prepare deployment package
+        run: |
+          mkdir -p deploy
+          cp package.json package-lock.json Procfile deploy/
+          cp -r dist deploy/
+          if [ -d ".ebextensions" ]; then cp -r .ebextensions deploy/.ebextensions; fi
+          cd deploy && zip -r ../app.zip . && cd ..
+
+      # 7. Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
@@ -46,27 +50,23 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # 7. Upload artifact to S3
-      - name: Upload artifact to S3
-        run: |
-          aws s3 cp app.zip s3://elasticbeanstalk-${{ secrets.AWS_REGION }}-${{ secrets.AWS_ACCOUNT_ID }}/app-${{ github.run_number }}.zip
-
       # 8. Install EB CLI
       - name: Install EB CLI
         run: pip install --upgrade awsebcli
 
-      # 9. Deploy to Elastic Beanstalk
-      - name: Deploy to Elastic Beanstalk
+      # 9. Initialize Elastic Beanstalk (safe even if already initialized)
+      - name: Initialize EB
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           EB_APP_NAME: ${{ secrets.EB_APP_NAME }}
+        run: |
+          eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION --verbose || true
+
+      # 10. Deploy to Elastic Beanstalk
+      - name: Deploy to Elastic Beanstalk
+        env:
+          EB_APP_NAME: ${{ secrets.EB_APP_NAME }}
           EB_ENV_NAME: ${{ secrets.EB_ENV_NAME }}
         run: |
-          # Initialize EB if needed
-          eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION --verbose
-
-          # Use the environment
           eb use $EB_ENV_NAME
-
-          # Deploy with a unique label; automatically creates application version
-          eb deploy --staged --label app-${{ github.run_number }} --verbose
+          eb deploy --label app-${{ github.run_number }} --staged --verbose

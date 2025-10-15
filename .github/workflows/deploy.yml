@@ -129,5 +129,10 @@ jobs:
           # Use existing environment
           eb use "$ENV_NAME"
 
-          # Deploy artifact
-          eb deploy --staged --label "app-${GITHUB_RUN_NUMBER}" --verbose
+          # Generate unique deployment label
+          DEPLOY_LABEL="app-$(date +%Y%m%d%H%M%S)"
+
+          echo "Deploying application version: $DEPLOY_LABEL"
+
+          # Deploy artifact with unique label
+          eb deploy --staged --label "$DEPLOY_LABEL" --verbose

@@ -40,7 +40,9 @@ jobs:
       # 7. Package artifact
       - name: Package artifact
         run: |
+          echo "Creating Elastic Beanstalk deployment package..."
           zip -r app.zip package.json package-lock.json Procfile dist .ebextensions -x "*.git*" || true
+          echo "✅ Package contents preview:"
           unzip -l app.zip | head -20
 
       # Upload artifact for deployment
@@ -115,8 +117,8 @@ jobs:
           aws elasticbeanstalk create-application-version \
             --application-name "$EB_APP_NAME" \
             --version-label "$DEPLOY_LABEL" \
-            --source-bundle S3Bucket=$S3_BUCKET,S3Key=$ZIP_FILE \
-            --region "$AWS_REGION"
+            --source-bundle S3Bucket=$S3_BUCKET,S3Key=app.zip
+
 
           echo "⏳ Waiting for application version to be processed..."
           for i in {1..30}; do

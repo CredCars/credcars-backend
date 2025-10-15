@@ -108,7 +108,7 @@ jobs:
           S3_BUCKET="elasticbeanstalk-$AWS_REGION-$(aws sts get-caller-identity --query Account --output text)"
 
           echo "🧱 Building $ZIP_FILE..."
-          zip -r $ZIP_FILE . -x '*.git*' 'node_modules/*' '*.github/*'
+          zip -r app.zip package.json package-lock.json Procfile dist .ebextensions -x "*.git*" || true
 
           echo "☁️ Uploading to s3://$S3_BUCKET/$ZIP_FILE..."
           aws s3 cp $ZIP_FILE s3://$S3_BUCKET/$ZIP_FILE

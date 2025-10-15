@@ -73,11 +73,11 @@ jobs:
           export EB_ENV_NAME_PROD=${{ secrets.EB_ENV_NAME_PROD }}
           export EB_APP_NAME_STAGING=${{ secrets.EB_APP_NAME_STAGING }}
           export EB_ENV_NAME_STAGING=${{ secrets.EB_ENV_NAME_STAGING }}
-          export JWT_SECRET_STAGING=${{ secrets.JWT_SECRET_STAGING }}
-          export JWT_REFRESH_SECRET_STAGING=${{ secrets.JWT_REFRESH_SECRET_STAGING }}
+          export JWT_SECRET_STAGING=${{ secrets.JWT_SECRET }}
+          export JWT_REFRESH_SECRET_STAGING=${{ secrets.JWT_REFRESH_SECRET }}
           export DATABASE_URI_STAGING=${{ secrets.DATABASE_URI_STAGING }}
-          export JWT_SECRET_PROD=${{ secrets.JWT_SECRET_PROD }}
-          export JWT_REFRESH_SECRET_PROD=${{ secrets.JWT_REFRESH_SECRET_PROD }}
+          export JWT_SECRET_PROD=${{ secrets.JWT_SECRET }}
+          export JWT_REFRESH_SECRET_PROD=${{ secrets.JWT_REFRESH_SECRET }}
           export DATABASE_URI_PROD=${{ secrets.DATABASE_URI_PROD }}
 
           # Determine branch
@@ -108,4 +108,3 @@ jobs:
           DEPLOY_LABEL="app-$(date +%Y%m%d%H%M%S)"
           eb deploy "$ENV_NAME" --label "$DEPLOY_LABEL" --staged --verbose
 
-          

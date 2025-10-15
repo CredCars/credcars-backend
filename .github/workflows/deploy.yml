@@ -32,9 +32,8 @@ jobs:
         run: npm run build
 
       - name: Package artifact
-        run: |
-          zip -r app.zip \
-            package.json package-lock.json dist/ Procfile .ebextensions/ -x "*.git*" "node_modules/*"
+        run: zip -r app.zip . -x "*.git*" "node_modules/*" "*.github/*"
+
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

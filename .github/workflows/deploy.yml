@@ -41,7 +41,7 @@ jobs:
       - name: Package artifact
         run: |
           zip -r app.zip package.json package-lock.json Procfile dist .ebextensions -x "*.git*" || true
-
+          unzip -l app.zip | head -20
 
       # Upload artifact for deployment
       - name: Upload artifact

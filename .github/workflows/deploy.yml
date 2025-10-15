@@ -30,14 +30,12 @@ jobs:
       - name: Build project
         run: npm run build
 
-      # 5. Prepare deployment package
       - name: Prepare deployment package
         run: |
-          mkdir -p deploy
-          cp package.json package-lock.json Procfile deploy/
-          cp -r dist deploy/
-          if [ -d ".ebextensions" ]; then cp -r .ebextensions deploy/.ebextensions; fi
-          cd deploy && zip -r ../app.zip . && cd ..
+          zip -r app.zip \
+            package.json package-lock.json Procfile dist .ebextensions \
+            -x "*.git*" "node_modules/*"
+
 
       # 6. Configure AWS credentials
       - name: Configure AWS credentials

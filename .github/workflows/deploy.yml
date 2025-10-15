@@ -101,25 +101,25 @@ jobs:
             exit 0
           fi
 
-          echo "🚀 Deploying app: $EB_APP_NAME"
-          echo "🌍 Environment: $ENV_NAME"
-          echo "🌎 Region: $AWS_REGION"
-
-          # Sanity check
-          if [ -z "$ENV_NAME" ]; then
-            echo "❌ EB_ENV_NAME is empty. Check your GitHub secrets."
-            exit 1
-          fi
-
-          # Initialize EB (safe even if already exists)
-          eb init "$EB_APP_NAME" --platform node.js-20 --region "$AWS_REGION" --verbose
-
-          # Link environment explicitly
-          eb use "$ENV_NAME"
-
-          # Build version label
           DEPLOY_LABEL="app-$(date +%Y%m%d%H%M%S)"
-          echo "📦 Deploying version: $DEPLOY_LABEL"
+          ZIP_FILE="$DEPLOY_LABEL.zip"
+          S3_BUCKET="elasticbeanstalk-$AWS_REGION-$(aws sts get-caller-identity --query Account --output text)"
 
-          # Deploy
-          eb deploy "$ENV_NAME" --label "$DEPLOY_LABEL" --staged --verbose
+          echo "🧱 Building $ZIP_FILE..."
+          zip -r $ZIP_FILE . -x '*.git*' 'node_modules/*' '*.github/*'
+
+          echo "☁️ Uploading to s3://$S3_BUCKET/$ZIP_FILE..."
+          aws s3 cp $ZIP_FILE s3://$S3_BUCKET/$ZIP_FILE
+
+          echo "📦 Creating new application version..."
+          aws elasticbeanstalk create-application-version \
+            --application-name "$EB_APP_NAME" \
+            --version-label "$DEPLOY_LABEL" \
+            --source-bundle S3Bucket=$S3_BUCKET,S3Key=$ZIP_FILE \
+            --region "$AWS_REGION"
+
+          echo "🚀 Deploying version $DEPLOY_LABEL to $ENV_NAME..."
+          aws elasticbeanstalk update-environment \
+            --environment-name "$ENV_NAME" \
+            --version-label "$DEPLOY_LABEL" \
+            --region "$AWS_REGION"

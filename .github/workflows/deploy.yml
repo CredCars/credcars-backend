@@ -3,39 +3,47 @@ name: CI/CD NestJS → Elastic Beanstalk
 on:
   push:
     branches:
-      - staging    # staging
-      - main       # production
+      - staging    # deploy to staging
+      - main       # deploy to production
 
 jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
     steps:
+      # 1. Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 2. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
+      # 3. Install dependencies
       - name: Install dependencies
         run: npm ci
 
+      # 4. Lint
       - name: Lint
         run: npm run lint
 
+      # 5. Run tests
       - name: Run tests
         run: npm test -- --coverage
 
+      # 6. Build project
       - name: Build project
         run: npm run build
 
+      # 7. Package artifact
       - name: Package artifact
         run: |
           zip -r app.zip \
             package.json package-lock.json dist/ Procfile .ebextensions/ -x "*.git*" "node_modules/*"
 
+      # 8. Upload artifact
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -47,12 +55,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-and-test
     steps:
+      # 1. Download artifact
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: eb-artifact
           path: .
 
+      # 2. Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
@@ -60,9 +70,11 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      # 3. Install EB CLI
       - name: Install EB CLI
         run: pip install --upgrade awsebcli
 
+      # 4. Deploy to EB
       - name: Deploy to EB
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -79,7 +91,7 @@ jobs:
         run: |
           set -e
 
-          # Determine branch
+          # Determine branch and environment
           BRANCH_NAME=${GITHUB_REF##*/}
 
           if [ "$BRANCH_NAME" = "main" ]; then
@@ -102,8 +114,14 @@ jobs:
           echo "Deploying to application: $EB_APP_NAME"
           echo "Deploying to environment: $ENV_NAME"
 
-          # Initialize EB application
-          eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION --verbose
+          # Initialize EB application (creates if not exists)
+          if ! eb list | grep -q "$EB_APP_NAME"; then
+            echo "Application $EB_APP_NAME does not exist. Creating..."
+            eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION --verbose
+          else
+            echo "Application $EB_APP_NAME exists. Initializing..."
+            eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION --verbose
+          fi
 
           # Check if environment exists
           if eb status "$ENV_NAME" &>/dev/null; then
@@ -119,5 +137,5 @@ jobs:
               --verbose
           fi
 
-          # Deploy application version
+          # Deploy artifact
           eb deploy --staged --label "app-${GITHUB_RUN_NUMBER}" --verbose

@@ -3,21 +3,6 @@
 /node_modules
 /deploy
 
-# Elastic Beanstalk / build artifacts
-build/
-*.zip
-/.ebextensions
-
-
-# Terraform
-infra/terraform/.terraform/
-infra/terraform/terraform.tfstate
-infra/terraform/terraform.tfstate.backup
-infra/build/
-*.tfplan
-*.tfstate
-*.tfstate.backup
-
 .env
 # Logs
 logs

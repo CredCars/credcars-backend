@@ -100,6 +100,14 @@ jobs:
 
           echo "Deploying to application: $EB_APP_NAME"
           echo "Deploying to environment: $ENV_NAME"
+      
+      - name: Debug Environment Variables
+        run: |
+          echo "Branch: ${GITHUB_REF##*/}"
+          echo "EB_APP_NAME_STAGING: ${{ secrets.EB_APP_NAME_STAGING }}"
+          echo "EB_ENV_NAME_STAGING: ${{ secrets.EB_ENV_NAME_STAGING }}"
+          echo "EB_APP_NAME_PROD: ${{ secrets.EB_APP_NAME_PROD }}"
+          echo "EB_ENV_NAME_PROD: ${{ secrets.EB_ENV_NAME_PROD }}"
 
           # Initialize for existing EB app (managed by Terraform)
           eb init "$EB_APP_NAME" --platform node.js-20 --region "$AWS_REGION"

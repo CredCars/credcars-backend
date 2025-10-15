@@ -1,16 +1,15 @@
-name: CI/CD to Elastic Beanstalk
+name: CI/CD NestJS → Elastic Beanstalk
 
 on:
   push:
     branches:
-      - staging
-      - main
+      - staging    # deploy to staging
+      - main   # deploy to production
 
 jobs:
-  deploy:
-    name: Deploy to Elastic Beanstalk
+  build-and-test:
+    name: Build & Test
     runs-on: ubuntu-latest
-
     steps:
       # 1. Checkout code
       - name: Checkout code
@@ -26,18 +25,43 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 4. Build the project
+      # 4. Run lint
+      - name: Lint
+        run: npm run lint
+
+      # 5. Run unit tests
+      - name: Run tests
+        run: npm test -- --coverage
+
+      # 6. Build artifact
       - name: Build project
         run: npm run build
 
-      - name: Prepare deployment package
+      # 7. Package artifact
+      - name: Package artifact
         run: |
           zip -r app.zip \
-            package.json package-lock.json Procfile dist .ebextensions \
-            -x "*.git*" "node_modules/*"
+            package.json package-lock.json dist/ Procfile .ebextensions/ -x "*.git*" "node_modules/*"
 
+      # Upload artifact for deployment
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: eb-artifact
+          path: app.zip
 
-      # 6. Configure AWS credentials
+  deploy:
+    name: Deploy to Elastic Beanstalk
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: eb-artifact
+          path: .
+
+      # Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
@@ -45,32 +69,47 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # 7. Install EB CLI
+      # Install EB CLI
       - name: Install EB CLI
         run: pip install --upgrade awsebcli
 
-      # 8. Determine environment
-      - name: Set environment variables
+      # Deploy to the appropriate environment
+      - name: Deploy to EB
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          EB_APP_NAME_PROD: ${{ secrets.EB_APP_NAME_PROD }}
+          EB_APP_NAME_STAGING: ${{ secrets.EB_APP_NAME_STAGING }}
+          EB_ENV_NAME_STAGING: ${{ secrets.EB_ENV_NAME_STAGING }}
+          EB_ENV_NAME_PROD: ${{ secrets.EB_ENV_NAME_PROD }}
+          JWT_SECRET_STAGING: ${{ secrets.JWT_SECRET}}
+          JWT_REFRESH_SECRET_STAGING: ${{ secrets.JWT_REFRESH_SECRET }}
+          DATABASE_URI_STAGING: ${{ secrets.DATABASE_URI_STAGING }}
+          JWT_SECRET_PROD: ${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET_PROD: ${{ secrets.JWT_REFRESH_SECRET }}
+          DATABASE_URI_PROD: ${{ secrets.DATABASE_URI_PROD }}
+        
         run: |
-          BRANCH_NAME=${GITHUB_REF##*/}
-          if [ "$BRANCH_NAME" = "main" ]; then
-            echo "EB_APP_NAME=${{ secrets.EB_APP_NAME_PROD }}" >> $GITHUB_ENV
-            echo "EB_ENV_NAME=${{ secrets.EB_ENV_NAME_PROD }}" >> $GITHUB_ENV
-          elif [ "$BRANCH_NAME" = "staging" ]; then
-            echo "EB_APP_NAME=${{ secrets.EB_APP_NAME_STAGING }}" >> $GITHUB_ENV
-            echo "EB_ENV_NAME=${{ secrets.EB_ENV_NAME_STAGING }}" >> $GITHUB_ENV
-          else
-            echo "No matching environment for branch $BRANCH_NAME"
-            exit 1
-          fi
+          - name: Set environment variables
+          
+           BRANCH_NAME=${GITHUB_REF##*/}
+            if [ "$BRANCH_NAME" = "main" ]; then
+              echo "EB_APP_NAME=${{ secrets.EB_APP_NAME_PROD }}" >> $GITHUB_ENV
+              echo "EB_ENV_NAME=${{ secrets.EB_ENV_NAME_PROD }}" >> $GITHUB_ENV
+            elif [ "$BRANCH_NAME" = "staging" ]; then
+              echo "EB_APP_NAME=${{ secrets.EB_APP_NAME_STAGING }}" >> $GITHUB_ENV
+              echo "EB_ENV_NAME=${{ secrets.EB_ENV_NAME_STAGING }}" >> $GITHUB_ENV
+            else
+              echo "No matching environment for branch $BRANCH_NAME"
+              exit 1
+            fi
 
-      # 9. Initialize EB (safe to re-run)
-      - name: Initialize EB
-        run: |
-          eb init $EB_APP_NAME --platform node.js-20 --region ${{ secrets.AWS_REGION }} || true
+          echo "Deploying to environment: $ENV_NAME"
 
-      # 10. Deploy to Elastic Beanstalk
-      - name: Deploy to Elastic Beanstalk
-        run: |
-          eb use $EB_ENV_NAME
-          eb deploy --label app-${{ github.run_number }} --staged --verbose
+          # Initialize EB if needed
+          eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION --verbose
+
+          # Use the environment
+          eb use $ENV_NAME
+
+          # Deploy artifact
+          eb deploy --staged --label "app-${GITHUB_RUN_NUMBER}" --verbose

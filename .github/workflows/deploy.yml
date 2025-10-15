@@ -74,94 +74,29 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # 3️⃣ Install Elastic Beanstalk CLI
-      - name: Install Elastic Beanstalk CLI
-        run: pip install --upgrade awsebcli
+     
+      # Install Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
 
-      # 4️⃣ Deploy to Elastic Beanstalk with env vars
-      - name: Deploy application
-        env:
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          EB_APP_NAME_PROD: ${{ secrets.EB_APP_NAME_PROD }}
-          EB_ENV_NAME_PROD: ${{ secrets.EB_ENV_NAME_PROD }}
-          EB_APP_NAME_STAGING: ${{ secrets.EB_APP_NAME_STAGING }}
-          EB_ENV_NAME_STAGING: ${{ secrets.EB_ENV_NAME_STAGING }}
-          JWT_SECRET_STAGING: ${{ secrets.JWT_SECRET }}
-          JWT_REFRESH_SECRET_STAGING: ${{ secrets.JWT_REFRESH_SECRET }}
-          DATABASE_URI_STAGING: ${{ secrets.DATABASE_URI_STAGING }}
-          JWT_SECRET_PROD: ${{ secrets.JWT_SECRET }}
-          JWT_REFRESH_SECRET_PROD: ${{ secrets.JWT_REFRESH_SECRET }}
-          DATABASE_URI_PROD: ${{ secrets.DATABASE_URI_PROD }}
+      # Initialize Terraform
+      - name: Terraform init
+        run: terraform -chdir=infra init
+
+      # Copy build artifact to S3 bucket defined in Terraform
+      - name: Upload artifact to Terraform S3 bucket
         run: |
-          set -e
+          # Read S3 bucket from Terraform output
+          S3_BUCKET=$(terraform -chdir=infra output -raw beanstalk_app_bucket)
+          echo "Uploading artifact to $S3_BUCKET..."
+          aws s3 cp ./build/app.zip s3://$S3_BUCKET/app-${GITHUB_REF##*/}.zip
 
-          BRANCH_NAME=${GITHUB_REF##*/}
-          echo "🚀 Starting deployment for branch: $BRANCH_NAME"
-
-          if [ "$BRANCH_NAME" = "main" ]; then
-            EB_APP_NAME="$EB_APP_NAME_PROD"
-            EB_ENV_NAME="$EB_ENV_NAME_PROD"
-            JWT_SECRET="$JWT_SECRET_PROD"
-            JWT_REFRESH_SECRET="$JWT_REFRESH_SECRET_PROD"
-            DATABASE_URI="$DATABASE_URI_PROD"
-          elif [ "$BRANCH_NAME" = "staging" ]; then
-            EB_APP_NAME="$EB_APP_NAME_STAGING"
-            EB_ENV_NAME="$EB_ENV_NAME_STAGING"
-            JWT_SECRET="$JWT_SECRET_STAGING"
-            JWT_REFRESH_SECRET="$JWT_REFRESH_SECRET_STAGING"
-            DATABASE_URI="$DATABASE_URI_STAGING"
-          else
-            echo "❌ No deployment configured for branch $BRANCH_NAME"
-            exit 0
-          fi
-
-          DEPLOY_LABEL="app-$(date +%Y%m%d%H%M%S)"
-          S3_BUCKET="elasticbeanstalk-$AWS_REGION-$(aws sts get-caller-identity --query Account --output text)"
-
-          echo "☁️ Uploading artifact to s3://$S3_BUCKET/$DEPLOY_LABEL.zip..."
-          mv app.zip $DEPLOY_LABEL.zip
-          aws s3 cp $DEPLOY_LABEL.zip s3://$S3_BUCKET/$DEPLOY_LABEL.zip
-
-          echo "📦 Creating new Elastic Beanstalk application version..."
-          aws elasticbeanstalk create-application-version \
-            --application-name "$EB_APP_NAME" \
-            --version-label "$DEPLOY_LABEL" \
-            --source-bundle S3Bucket=$S3_BUCKET,S3Key=$DEPLOY_LABEL.zip
-          echo "⏳ Waiting for application version $DEPLOY_LABEL to be PROCESSED..."
-          for i in {1..30}; do
-            STATUS=$(aws elasticbeanstalk describe-application-versions \
-              --application-name "$EB_APP_NAME" \
-              --version-labels "$DEPLOY_LABEL" \
-              --query "ApplicationVersions[0].Status" \
-              --output text \
-              --region "$AWS_REGION")
-
-            if [ "$STATUS" = "PROCESSED" ]; then
-              echo "✅ Application version processed."
-              break
-            fi
-
-            if [ "$STATUS" = "FAILED" ]; then
-              echo "❌ Application version failed to process."
-              exit 1
-            fi
-
-            echo "Current status: $STATUS. Waiting 10s..."
-            sleep 10
-          done
-
-          if [ "$STATUS" != "PROCESSED" ]; then
-            echo "❌ Timeout: Application version never reached PROCESSED state."
-            exit 1
-          fi
-
-          echo "🚀 Updating environment $EB_ENV_NAME with version $DEPLOY_LABEL..."
-          aws elasticbeanstalk update-environment \
-            --environment-name "$EB_ENV_NAME" \
-            --version-label "$DEPLOY_LABEL" \
-            --option-settings \
-              Namespace=aws:elasticbeanstalk:application:environment,OptionName=JWT_SECRET,Value=$JWT_SECRET \
-              Namespace=aws:elasticbeanstalk:application:environment,OptionName=JWT_REFRESH_SECRET,Value=$JWT_REFRESH_SECRET \
-              Namespace=aws:elasticbeanstalk:application:environment,OptionName=DATABASE_URI,Value=$DATABASE_URI
-
-          echo "✅ Deployment complete for $EB_ENV_NAME ($EB_APP_NAME)"
+      # Apply Terraform to create new application version and update environment
+      - name: Terraform apply
+        run: |
+          echo "Applying Terraform to update Elastic Beanstalk..."
+          terraform -chdir=infra apply -auto-approve \
+            -var="artifact_key=app-${GITHUB_REF##*/}.zip" \
+            -var="env=${GITHUB_REF##*/}"

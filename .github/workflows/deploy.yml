@@ -45,7 +45,7 @@ jobs:
 
       # Upload artifact for deployment
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: eb-artifact
           path: app.zip
@@ -73,7 +73,7 @@ jobs:
       - name: Install EB CLI
         run: pip install --upgrade awsebcli
 
-            - name: Deploy to Elastic Beanstalk
+      - name: Deploy to Elastic Beanstalk
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           EB_APP_NAME_PROD: ${{ secrets.EB_APP_NAME_PROD }}

@@ -124,21 +124,10 @@ jobs:
           fi
 
           # Initialize EB application
-          eb init "$EB_APP_NAME" --platform node.js-20 --region "$AWS_REGION" --verbose
+          # eb init "$EB_APP_NAME" --platform node.js-20 --region "$AWS_REGION" --verbose
 
-          # Check if environment exists
-          if eb status "$ENV_NAME" &>/dev/null; then
-              echo "Environment $ENV_NAME exists. Using it..."
-              eb use "$ENV_NAME"
-          else
-              echo "Environment $ENV_NAME does not exist. Creating..."
-              eb create "$ENV_NAME" \
-                  --platform node.js-20 \
-                  --region "$AWS_REGION" \
-                  --envvars JWT_SECRET=$JWT_SECRET,JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET,DATABASE_URI=$DATABASE_URI \
-                  --single \
-                  --verbose
-          fi
+          # Use existing environment
+          eb use "$ENV_NAME"
 
           # Deploy artifact
           eb deploy --staged --label "app-${GITHUB_RUN_NUMBER}" --verbose

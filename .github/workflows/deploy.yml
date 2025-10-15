@@ -101,30 +101,15 @@ jobs:
           echo "Deploying to application: $EB_APP_NAME"
           echo "Deploying to environment: $ENV_NAME"
 
-          # Initialize EB application (creates if not exists)
-          if ! eb list | grep -q "$EB_APP_NAME"; then
-            echo "Application $EB_APP_NAME does not exist. Creating..."
-            eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION --verbose
-          else
-            echo "Application $EB_APP_NAME exists. Initializing..."
-            eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION --verbose
-          fi
+          # Initialize for existing EB app (managed by Terraform)
+          eb init "$EB_APP_NAME" --platform node.js-20 --region "$AWS_REGION"
 
-          # Check if environment exists
-          if eb status "$ENV_NAME" &>/dev/null; then
-            echo "Environment $ENV_NAME exists. Using it..."
-            eb use "$ENV_NAME"
-          else
-            echo "Environment $ENV_NAME does not exist. Creating..."
-            eb create "$ENV_NAME" \
-              --platform node.js-20 \
-              --region $AWS_REGION \
-              --envvars JWT_SECRET=$JWT_SECRET,JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET,DATABASE_URI=$DATABASE_URI \
-              --single \
-              --verbose
-          fi
+          # Link to existing environment
+          eb use "$EB_ENV_NAME"
 
-          # Deploy with unique label
+          # Create a unique version label
           DEPLOY_LABEL="app-$(date +%Y%m%d%H%M%S)"
-          echo "Deploying application version: $DEPLOY_LABEL"
-          eb deploy --staged --label "$DEPLOY_LABEL" --verbose
+          echo "Deploying version: $DEPLOY_LABEL"
+
+          # Deploy
+          eb deploy "$EB_ENV_NAME" --label "$DEPLOY_LABEL" --staged --verbose

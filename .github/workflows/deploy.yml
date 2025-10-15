@@ -81,7 +81,6 @@ jobs:
         run: |
           set -e
 
-          # Determine target environment based on branch
           BRANCH_NAME=${GITHUB_REF##*/}
           if [ "$BRANCH_NAME" = "main" ]; then
             EB_APP_NAME=$EB_APP_NAME_PROD
@@ -103,15 +102,12 @@ jobs:
           echo "Deploying to app: $EB_APP_NAME"
           echo "Deploying to env: $ENV_NAME"
 
-          # Get AWS account ID
           ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text)
           DEPLOY_LABEL="app-$(date +%Y%m%d%H%M%S)"
           S3_BUCKET="elasticbeanstalk-$AWS_REGION-$ACCOUNT_ID"
           S3_KEY="$EB_APP_NAME/$DEPLOY_LABEL.zip"
 
           echo "Uploading $DEPLOY_LABEL to S3 bucket: $S3_BUCKET"
-
-          # Upload ZIP to S3
           aws s3 cp app.zip "s3://$S3_BUCKET/$S3_KEY"
 
           echo "Creating new application version: $DEPLOY_LABEL"
@@ -120,6 +116,30 @@ jobs:
             --version-label "$DEPLOY_LABEL" \
             --source-bundle S3Bucket="$S3_BUCKET",S3Key="$S3_KEY" \
             --region "$AWS_REGION"
+
+          echo "Waiting for application version to be processed..."
+          for i in {1..10}; do
+            STATUS=$(aws elasticbeanstalk describe-application-versions \
+              --application-name "$EB_APP_NAME" \
+              --version-labels "$DEPLOY_LABEL" \
+              --query "ApplicationVersions[0].Status" \
+              --output text)
+            
+            echo "Current status: $STATUS"
+
+            if [ "$STATUS" = "PROCESSED" ]; then
+              echo "Application version is ready!"
+              break
+            fi
+
+            if [ "$i" -eq 10 ]; then
+              echo "❌ Timeout: Application version never reached PROCESSED state."
+              exit 1
+            fi
+
+            echo "Waiting 10s before retry..."
+            sleep 10
+          done
 
           echo "Updating environment to new version..."
           aws elasticbeanstalk update-environment \

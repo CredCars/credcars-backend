@@ -89,8 +89,8 @@ jobs:
           DATABASE_URI_PROD: ${{ secrets.DATABASE_URI_PROD }}
         
         run: |
-          - name: Set environment variables
-          
+          # Select environment based on branch
+          BRANCH_NAME=${GITHUB_REF##*/}          
            BRANCH_NAME=${GITHUB_REF##*/}
             if [ "$BRANCH_NAME" = "main" ]; then
               echo "EB_APP_NAME=${{ secrets.EB_APP_NAME_PROD }}" >> $GITHUB_ENV

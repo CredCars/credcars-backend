@@ -78,7 +78,7 @@ jobs:
       - name: Install Elastic Beanstalk CLI
         run: pip install --upgrade awsebcli
 
-      # 4️⃣ Deploy to Elastic Beanstalk
+      # 4️⃣ Deploy to Elastic Beanstalk with env vars
       - name: Deploy application
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -86,6 +86,12 @@ jobs:
           EB_ENV_NAME_PROD: ${{ secrets.EB_ENV_NAME_PROD }}
           EB_APP_NAME_STAGING: ${{ secrets.EB_APP_NAME_STAGING }}
           EB_ENV_NAME_STAGING: ${{ secrets.EB_ENV_NAME_STAGING }}
+          JWT_SECRET_STAGING: ${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET_STAGING: ${{ secrets.JWT_REFRESH_SECRET }}
+          DATABASE_URI_STAGING: ${{ secrets.DATABASE_URI_STAGING }}
+          JWT_SECRET_PROD: ${{ secrets.JWT_SECRET }}
+          JWT_REFRESH_SECRET_PROD: ${{ secrets.JWT_REFRESH_SECRET }}
+          DATABASE_URI_PROD: ${{ secrets.DATABASE_URI_PROD }}
         run: |
           set -e
 
@@ -95,9 +101,15 @@ jobs:
           if [ "$BRANCH_NAME" = "main" ]; then
             EB_APP_NAME="$EB_APP_NAME_PROD"
             EB_ENV_NAME="$EB_ENV_NAME_PROD"
+            JWT_SECRET="$JWT_SECRET_PROD"
+            JWT_REFRESH_SECRET="$JWT_REFRESH_SECRET_PROD"
+            DATABASE_URI="$DATABASE_URI_PROD"
           elif [ "$BRANCH_NAME" = "staging" ]; then
             EB_APP_NAME="$EB_APP_NAME_STAGING"
             EB_ENV_NAME="$EB_ENV_NAME_STAGING"
+            JWT_SECRET="$JWT_SECRET_STAGING"
+            JWT_REFRESH_SECRET="$JWT_REFRESH_SECRET_STAGING"
+            DATABASE_URI="$DATABASE_URI_STAGING"
           else
             echo "❌ No deployment configured for branch $BRANCH_NAME"
             exit 0
@@ -119,6 +131,10 @@ jobs:
           echo "🚀 Updating environment $EB_ENV_NAME with version $DEPLOY_LABEL..."
           aws elasticbeanstalk update-environment \
             --environment-name "$EB_ENV_NAME" \
-            --version-label "$DEPLOY_LABEL"
+            --version-label "$DEPLOY_LABEL" \
+            --option-settings \
+              Namespace=aws:elasticbeanstalk:application:environment,OptionName=JWT_SECRET,Value=$JWT_SECRET \
+              Namespace=aws:elasticbeanstalk:application:environment,OptionName=JWT_REFRESH_SECRET,Value=$JWT_REFRESH_SECRET \
+              Namespace=aws:elasticbeanstalk:application:environment,OptionName=DATABASE_URI,Value=$DATABASE_URI
 
           echo "✅ Deployment complete for $EB_ENV_NAME ($EB_APP_NAME)"

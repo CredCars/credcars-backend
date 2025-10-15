@@ -73,43 +73,53 @@ jobs:
       - name: Install EB CLI
         run: pip install --upgrade awsebcli
 
-      # Deploy to the appropriate environment
-      - name: Deploy to EB
+            - name: Deploy to Elastic Beanstalk
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           EB_APP_NAME_PROD: ${{ secrets.EB_APP_NAME_PROD }}
+          EB_ENV_NAME_PROD: ${{ secrets.EB_ENV_NAME_PROD }}
           EB_APP_NAME_STAGING: ${{ secrets.EB_APP_NAME_STAGING }}
           EB_ENV_NAME_STAGING: ${{ secrets.EB_ENV_NAME_STAGING }}
-          EB_ENV_NAME_PROD: ${{ secrets.EB_ENV_NAME_PROD }}
-          JWT_SECRET_STAGING: ${{ secrets.JWT_SECRET}}
+          JWT_SECRET_STAGING: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET_STAGING: ${{ secrets.JWT_REFRESH_SECRET }}
           DATABASE_URI_STAGING: ${{ secrets.DATABASE_URI_STAGING }}
           JWT_SECRET_PROD: ${{ secrets.JWT_SECRET }}
           JWT_REFRESH_SECRET_PROD: ${{ secrets.JWT_REFRESH_SECRET }}
           DATABASE_URI_PROD: ${{ secrets.DATABASE_URI_PROD }}
-        
         run: |
-          # Select environment based on branch
-          BRANCH_NAME=${GITHUB_REF##*/}          
-           BRANCH_NAME=${GITHUB_REF##*/}
-            if [ "$BRANCH_NAME" = "main" ]; then
-              echo "EB_APP_NAME=${{ secrets.EB_APP_NAME_PROD }}" >> $GITHUB_ENV
-              echo "EB_ENV_NAME=${{ secrets.EB_ENV_NAME_PROD }}" >> $GITHUB_ENV
-            elif [ "$BRANCH_NAME" = "staging" ]; then
-              echo "EB_APP_NAME=${{ secrets.EB_APP_NAME_STAGING }}" >> $GITHUB_ENV
-              echo "EB_ENV_NAME=${{ secrets.EB_ENV_NAME_STAGING }}" >> $GITHUB_ENV
-            else
-              echo "No matching environment for branch $BRANCH_NAME"
-              exit 1
-            fi
+          set -e
+          BRANCH_NAME=${GITHUB_REF##*/}
 
-          echo "Deploying to environment: $ENV_NAME"
+          if [ "$BRANCH_NAME" = "main" ]; then
+            EB_APP_NAME="$EB_APP_NAME_PROD"
+            ENV_NAME="$EB_ENV_NAME_PROD"
+          elif [ "$BRANCH_NAME" = "staging" ]; then
+            EB_APP_NAME="$EB_APP_NAME_STAGING"
+            ENV_NAME="$EB_ENV_NAME_STAGING"
+          else
+            echo "❌ No deployment configured for branch $BRANCH_NAME"
+            exit 0
+          fi
 
-          # Initialize EB if needed
-          eb init $EB_APP_NAME --platform node.js-20 --region $AWS_REGION --verbose
+          echo "🚀 Deploying app: $EB_APP_NAME"
+          echo "🌍 Environment: $ENV_NAME"
+          echo "🌎 Region: $AWS_REGION"
 
-          # Use the environment
-          eb use $ENV_NAME
+          # Sanity check
+          if [ -z "$ENV_NAME" ]; then
+            echo "❌ EB_ENV_NAME is empty. Check your GitHub secrets."
+            exit 1
+          fi
 
-          # Deploy artifact
-          eb deploy --staged --label "app-${GITHUB_RUN_NUMBER}" --verbose
+          # Initialize EB (safe even if already exists)
+          eb init "$EB_APP_NAME" --platform node.js-20 --region "$AWS_REGION" --verbose
+
+          # Link environment explicitly
+          eb use "$ENV_NAME"
+
+          # Build version label
+          DEPLOY_LABEL="app-$(date +%Y%m%d%H%M%S)"
+          echo "📦 Deploying version: $DEPLOY_LABEL"
+
+          # Deploy
+          eb deploy "$ENV_NAME" --label "$DEPLOY_LABEL" --staged --verbose

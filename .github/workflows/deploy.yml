@@ -127,6 +127,33 @@ jobs:
             --application-name "$EB_APP_NAME" \
             --version-label "$DEPLOY_LABEL" \
             --source-bundle S3Bucket=$S3_BUCKET,S3Key=$DEPLOY_LABEL.zip
+          echo "⏳ Waiting for application version $DEPLOY_LABEL to be PROCESSED..."
+          for i in {1..30}; do
+            STATUS=$(aws elasticbeanstalk describe-application-versions \
+              --application-name "$EB_APP_NAME" \
+              --version-labels "$DEPLOY_LABEL" \
+              --query "ApplicationVersions[0].Status" \
+              --output text \
+              --region "$AWS_REGION")
+
+            if [ "$STATUS" = "PROCESSED" ]; then
+              echo "✅ Application version processed."
+              break
+            fi
+
+            if [ "$STATUS" = "FAILED" ]; then
+              echo "❌ Application version failed to process."
+              exit 1
+            fi
+
+            echo "Current status: $STATUS. Waiting 10s..."
+            sleep 10
+          done
+
+          if [ "$STATUS" != "PROCESSED" ]; then
+            echo "❌ Timeout: Application version never reached PROCESSED state."
+            exit 1
+          fi
 
           echo "🚀 Updating environment $EB_ENV_NAME with version $DEPLOY_LABEL..."
           aws elasticbeanstalk update-environment \

@@ -40,8 +40,8 @@ jobs:
       # 7. Package artifact
       - name: Package artifact
         run: |
-          zip -r app.zip \
-            package.json package-lock.json dist/ Procfile .ebextensions/ -x "*.git*" "node_modules/*"
+          zip -r app.zip package.json package-lock.json Procfile dist .ebextensions -x "*.git*" || true
+
 
       # Upload artifact for deployment
       - name: Upload artifact

@@ -64,23 +64,24 @@ jobs:
         run: pip install --upgrade awsebcli
 
       - name: Deploy to EB
-        env:
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          EB_APP_NAME_PROD: ${{ secrets.EB_APP_NAME_PROD }}
-          EB_APP_NAME_STAGING: ${{ secrets.EB_APP_NAME_STAGING }}
-          EB_ENV_NAME_STAGING: ${{ secrets.EB_ENV_NAME_STAGING }}
-          EB_ENV_NAME_PROD: ${{ secrets.EB_ENV_NAME_PROD }}
-          JWT_SECRET_STAGING: ${{ secrets.JWT_SECRET }}
-          JWT_REFRESH_SECRET_STAGING: ${{ secrets.JWT_REFRESH_SECRET }}
-          DATABASE_URI_STAGING: ${{ secrets.DATABASE_URI_STAGING }}
-          JWT_SECRET_PROD: ${{ secrets.JWT_SECRET }}
-          JWT_REFRESH_SECRET_PROD: ${{ secrets.JWT_REFRESH_SECRET }}
-          DATABASE_URI_PROD: ${{ secrets.DATABASE_URI_PROD }}
         run: |
           set -e
+          
+          # Inject secrets into shell variables
+          export AWS_REGION=${{ secrets.AWS_REGION }}
+          export EB_APP_NAME_PROD=${{ secrets.EB_APP_NAME_PROD }}
+          export EB_ENV_NAME_PROD=${{ secrets.EB_ENV_NAME_PROD }}
+          export EB_APP_NAME_STAGING=${{ secrets.EB_APP_NAME_STAGING }}
+          export EB_ENV_NAME_STAGING=${{ secrets.EB_ENV_NAME_STAGING }}
+          export JWT_SECRET_STAGING=${{ secrets.JWT_SECRET_STAGING }}
+          export JWT_REFRESH_SECRET_STAGING=${{ secrets.JWT_REFRESH_SECRET_STAGING }}
+          export DATABASE_URI_STAGING=${{ secrets.DATABASE_URI_STAGING }}
+          export JWT_SECRET_PROD=${{ secrets.JWT_SECRET_PROD }}
+          export JWT_REFRESH_SECRET_PROD=${{ secrets.JWT_REFRESH_SECRET_PROD }}
+          export DATABASE_URI_PROD=${{ secrets.DATABASE_URI_PROD }}
 
+          # Determine branch
           BRANCH_NAME=${GITHUB_REF##*/}
-
           if [ "$BRANCH_NAME" = "main" ]; then
             EB_APP_NAME=$EB_APP_NAME_PROD
             ENV_NAME=$EB_ENV_NAME_PROD
@@ -98,26 +99,13 @@ jobs:
             exit 0
           fi
 
-          echo "Deploying to application: $EB_APP_NAME"
-          echo "Deploying to environment: $ENV_NAME"
-      
-      - name: Debug Environment Variables
-        run: |
-          echo "Branch: ${GITHUB_REF##*/}"
-          echo "EB_APP_NAME_STAGING: ${{ secrets.EB_APP_NAME_STAGING }}"
-          echo "EB_ENV_NAME_STAGING: ${{ secrets.EB_ENV_NAME_STAGING }}"
-          echo "EB_APP_NAME_PROD: ${{ secrets.EB_APP_NAME_PROD }}"
-          echo "EB_ENV_NAME_PROD: ${{ secrets.EB_ENV_NAME_PROD }}"
+          echo "Deploying to app: $EB_APP_NAME"
+          echo "Deploying to env: $ENV_NAME"
 
-          # Initialize for existing EB app (managed by Terraform)
+          # Initialize and deploy
           eb init "$EB_APP_NAME" --platform node.js-20 --region "$AWS_REGION"
-
-          # Link to existing environment
-          eb use "$EB_ENV_NAME"
-
-          # Create a unique version label
+          eb use "$ENV_NAME"
           DEPLOY_LABEL="app-$(date +%Y%m%d%H%M%S)"
-          echo "Deploying version: $DEPLOY_LABEL"
+          eb deploy "$ENV_NAME" --label "$DEPLOY_LABEL" --staged --verbose
 
-          # Deploy
-          eb deploy "$EB_ENV_NAME" --label "$DEPLOY_LABEL" --staged --verbose
+          

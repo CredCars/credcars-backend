@@ -80,8 +80,19 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
+      
+      - name: Debug folder structure
+        run: |
+          echo "Current directory:"
+          pwd
+          echo "List contents (level 1):"
+          ls -la
+          echo "List contents (terraform subdir):"
+          ls -la terraform || echo "No terraform folder here"
+          echo "List contents (infra subdir):"
+          ls -la infra || echo "No infra folder here"
 
-            # Initialize Terraform
+      # Initialize Terraform
       - name: Terraform init
         working-directory: terraform
         run: terraform init

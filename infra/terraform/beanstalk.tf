@@ -20,7 +20,8 @@ resource "random_id" "bucket_suffix" {
 resource "aws_s3_object" "app_version" {
   bucket = aws_s3_bucket.beanstalk_app_bucket.id
   key    = "app-${var.env}.zip"
-  source = "../app.zip"
+  source = "${path.module}/../../app.zip"
+  etag   = filemd5("${path.module}/../../app.zip")
 }
 
 resource "aws_elastic_beanstalk_application_version" "version" {

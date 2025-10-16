@@ -8,105 +8,60 @@ on:
 
 jobs:
   build-and-test:
-    name: Build & Test
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run lint
-        run: npm run lint
-
-      - name: Run tests
-        run: npm test -- --coverage
-
-      - name: Build project
-        run: npm run build
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test -- --coverage
+      - run: npm run build
 
       - name: Package for Elastic Beanstalk
         run: |
-          echo "Creating Elastic Beanstalk deployment package..."
           zip -r app.zip dist package.json package-lock.json Procfile .ebextensions -x "*.git*" || true
-          echo "✅ Package contents preview:"
           unzip -l app.zip | head -20
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: eb-artifact
           path: app.zip
 
   deploy:
-    name: Deploy to Elastic Beanstalk
     runs-on: ubuntu-latest
     needs: build-and-test
 
     steps:
-      # 🧩 Re-checkout the entire repo (so Terraform folder is available)
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      # 🧱 Download build artifact
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
         with:
           name: eb-artifact
           path: .
 
-      # 🪣 Configure AWS credentials
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v3
+      - uses: aws-actions/configure-aws-credentials@v3
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # 🧰 Setup Terraform
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+      - uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
 
-      # 🚀 Initialize Terraform
+      - name: Move app.zip to Terraform parent directory
+        run: mv app.zip infra/
+
+      - name: Check build artifacts
+        run: ls -R infra/terraform
+
       - name: Terraform init
         working-directory: infra/terraform
         run: terraform init
 
-      - name: Read Terraform output and upload artifact.
-        shell: bash
-        run: |
-          echo "Reading Terraform S3 bucket output..."
-          
-          # Capture Terraform output (ignore any debug lines)
-          RAW_OUTPUT=$(terraform -chdir=infra/terraform output -raw beanstalk_app_bucket 2>&1 || true)
-
-          echo "Raw Terraform output:"
-          echo "$RAW_OUTPUT"
-
-          # Extract just the first valid bucket-like string (alphanumeric + dashes + dots)
-          S3_BUCKET=$(echo "$RAW_OUTPUT" | grep -Eo '^[a-zA-Z0-9.-]+' | head -n 1)
-
-          if [ -z "$S3_BUCKET" ]; then
-            echo "❌ Could not extract bucket name. Terraform returned:"
-            echo "$RAW_OUTPUT"
-            exit 1
-          fi
-
-          echo "✅ Found bucket: $S3_BUCKET"
-
-          echo "Uploading app.zip to s3://$S3_BUCKET/"
-          aws s3 cp ./app.zip "s3://$S3_BUCKET/app-${GITHUB_REF##*/}.zip"
-
-      - name: Deploy new version to Elastic Beanstalk
-        run: |
-          echo "Deploying new version to Elastic Beanstalk..."
-          terraform -chdir=infra/terraform apply -auto-approve
+      - name: Terraform apply (deploy to Elastic Beanstalk)
+        working-directory: infra/terraform
+        run: terraform apply -auto-approve

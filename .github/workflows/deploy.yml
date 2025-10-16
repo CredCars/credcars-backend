@@ -83,7 +83,7 @@ jobs:
 
       # Initialize Terraform
       - name: Terraform init
-        run: terraform -chdir=infra init
+        run: terraform -chdir=infra/terraform init
 
       # Copy build artifact to S3 bucket defined in Terraform
       - name: Upload artifact to Terraform S3 bucket

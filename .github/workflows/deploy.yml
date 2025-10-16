@@ -3,8 +3,8 @@ name: CI/CD NestJS → Elastic Beanstalk
 on:
   push:
     branches:
-      - staging     # Deploy to staging
-      - main        # Deploy to production
+      - staging
+      - main
 
 jobs:
   build-and-test:
@@ -12,36 +12,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          path: .
 
-
-      # 2️⃣ Setup Node.js 20
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # 3️⃣ Install dependencies (clean)
       - name: Install dependencies
         run: npm ci
 
-      # 4️⃣ Lint check
       - name: Run lint
         run: npm run lint
 
-      # 5️⃣ Run tests with coverage
       - name: Run tests
         run: npm test -- --coverage
 
-      # 6️⃣ Build app
       - name: Build project
         run: npm run build
 
-      # 7️⃣ Package artifact for deployment
       - name: Package for Elastic Beanstalk
         run: |
           echo "Creating Elastic Beanstalk deployment package..."
@@ -49,7 +39,6 @@ jobs:
           echo "✅ Package contents preview:"
           unzip -l app.zip | head -20
 
-      # 8️⃣ Upload artifact to share with deploy job
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -62,14 +51,18 @@ jobs:
     needs: build-and-test
 
     steps:
-      # 1️⃣ Download the built artifact
+      # 🧩 Re-checkout the entire repo (so Terraform folder is available)
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 🧱 Download build artifact
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
           name: eb-artifact
           path: .
 
-      # 2️⃣ Configure AWS credentials
+      # 🪣 Configure AWS credentials
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
@@ -77,42 +70,38 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-     
-      # Install Terraform
+      # 🧰 Setup Terraform
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
-      
-      - name: Debug folder structure
+
+      # 🪄 Debug directory
+      - name: Debug directory
         run: |
           echo "Current directory:"
           pwd
-          echo "List contents (level 1):"
+          echo "List files:"
           ls -la
-          echo "List contents (terraform subdir):"
-          ls -la terraform || echo "No terraform folder here"
-          echo "List contents (infra subdir):"
-          ls -la infra || echo "No infra folder here"
+          echo "List terraform folder:"
+          ls -la terraform || echo "No terraform folder!"
 
-      # Initialize Terraform
+      # 🚀 Initialize Terraform
       - name: Terraform init
         working-directory: terraform
         run: terraform init
 
-      # Copy build artifact to S3 bucket defined in Terraform
+      # ☁️ Upload artifact to S3
       - name: Upload artifact to Terraform S3 bucket
-        working-directory: terraform
         run: |
-          S3_BUCKET=$(terraform output -raw beanstalk_app_bucket)
+          S3_BUCKET=$(terraform -chdir=terraform output -raw beanstalk_app_bucket)
           echo "Uploading artifact to $S3_BUCKET..."
-          aws s3 cp ../app.zip s3://$S3_BUCKET/app-${GITHUB_REF##*/}.zip
+          aws s3 cp ./app.zip s3://$S3_BUCKET/app-${GITHUB_REF##*/}.zip
 
-      # Apply Terraform to create new application version and update environment
+      # ⚙️ Apply Terraform
       - name: Terraform apply
-        working-directory: terraform
         run: |
-          echo "Applying Terraform to update Elastic Beanstalk..."
-          terraform apply -auto-approve \
+          echo "Applying Terraform..."
+          terraform -chdir=terraform apply -auto-approve \
             -var="artifact_key=app-${GITHUB_REF##*/}.zip" \
             -var="env=${GITHUB_REF##*/}"

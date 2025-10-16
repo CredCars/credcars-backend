@@ -76,25 +76,15 @@ jobs:
         with:
           terraform_version: 1.5.7
 
-      # 🪄 Debug directory
-      - name: Debug directory
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "List files:"
-          ls -la
-          echo "List terraform folder:"
-          ls -la terraform || echo "No terraform folder!"
-
       # 🚀 Initialize Terraform
       - name: Terraform init
-        working-directory: terraform
+        working-directory: infra/terraform
         run: terraform init
 
       # ☁️ Upload artifact to S3
       - name: Upload artifact to Terraform S3 bucket
         run: |
-          S3_BUCKET=$(terraform -chdir=terraform output -raw beanstalk_app_bucket)
+          S3_BUCKET=$(terraform -chdir=infra/terraform output -raw beanstalk_app_bucket)
           echo "Uploading artifact to $S3_BUCKET..."
           aws s3 cp ./app.zip s3://$S3_BUCKET/app-${GITHUB_REF##*/}.zip
 
@@ -102,6 +92,6 @@ jobs:
       - name: Terraform apply
         run: |
           echo "Applying Terraform..."
-          terraform -chdir=terraform apply -auto-approve \
+          terraform -chdir=infra/terraform apply -auto-approve \
             -var="artifact_key=app-${GITHUB_REF##*/}.zip" \
             -var="env=${GITHUB_REF##*/}"

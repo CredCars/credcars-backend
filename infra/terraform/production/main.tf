@@ -17,4 +17,3 @@ terraform {
 provider "aws" {
   region = var.aws_region
 }
-are the following files needed?

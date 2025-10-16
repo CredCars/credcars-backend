@@ -81,11 +81,14 @@ jobs:
         working-directory: infra/terraform
         run: terraform init
 
-      # ☁️ Upload artifact to S3
       - name: Upload artifact to Terraform S3 bucket
+        shell: bash
         run: |
+          echo "Reading Terraform S3 bucket output..."
           S3_BUCKET=$(terraform -chdir=infra/terraform output -raw beanstalk_app_bucket)
-          echo "Uploading artifact to $S3_BUCKET..."
+          echo "✅ Found bucket: $S3_BUCKET"
+
+          echo "Uploading build artifact to s3://$S3_BUCKET/"
           aws s3 cp ./app.zip s3://$S3_BUCKET/app-${GITHUB_REF##*/}.zip
 
       # ⚙️ Apply Terraform

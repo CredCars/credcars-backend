@@ -6,13 +6,11 @@ terraform {
       version = "~> 5.0"
     }
   }
-}
 
-terraform {
   backend "s3" {
     bucket = "credcars-terraform-state"
-    key    = "backend/terraform.tfstate"
-    region = "us-east-1"
+    key    = "backend/${var.env}/terraform.tfstate"
+    region = var.aws_region
   }
 }
 

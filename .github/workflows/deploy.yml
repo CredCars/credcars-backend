@@ -81,26 +81,22 @@ jobs:
         working-directory: infra/terraform
         run: terraform init
 
-      - name: Read Terraform output (debug)
+      - name: Read Terraform output and upload artifact
         shell: bash
         run: |
           echo "Reading Terraform S3 bucket output..."
           
-          # Run terraform normally and show everything (no redirection)
-          terraform -chdir=infra/terraform output beanstalk_app_bucket || echo "⚠️ terraform output failed"
-          
-          # Capture only the raw output
+          # Capture Terraform output (ignore any debug lines)
           RAW_OUTPUT=$(terraform -chdir=infra/terraform output -raw beanstalk_app_bucket 2>&1 || true)
 
-          echo "----- RAW OUTPUT START -----"
+          echo "Raw Terraform output:"
           echo "$RAW_OUTPUT"
-          echo "----- RAW OUTPUT END -----"
 
-          # Try to parse a valid S3 bucket name from it
-          S3_BUCKET=$(echo "$RAW_OUTPUT" | grep -Eo '^[a-zA-Z0-9.-]+$' | head -n 1)
+          # Extract just the first valid bucket-like string (alphanumeric + dashes + dots)
+          S3_BUCKET=$(echo "$RAW_OUTPUT" | grep -Eo '^[a-zA-Z0-9.-]+' | head -n 1)
 
           if [ -z "$S3_BUCKET" ]; then
-            echo "❌ Failed to extract bucket name. Terraform returned:"
+            echo "❌ Could not extract bucket name. Terraform returned:"
             echo "$RAW_OUTPUT"
             exit 1
           fi

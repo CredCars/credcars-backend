@@ -15,6 +15,9 @@ jobs:
       # 1️⃣ Checkout repository
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          path: .
+
 
       # 2️⃣ Setup Node.js 20
       - name: Setup Node.js

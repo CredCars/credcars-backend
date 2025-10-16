@@ -1,0 +1,47 @@
+[
+    {
+        "Namespace": "aws:elasticbeanstalk:application:environment",
+        "OptionName": "JWT_EXPIRES_IN",
+        "Value": "1h"
+    },
+    {
+        "Namespace": "aws:elasticbeanstalk:application:environment",
+        "OptionName": "JWT_REFRESH_EXPIRES_IN",
+        "Value": "24h"
+    },
+    {
+        "Namespace": "aws:elasticbeanstalk:application:environment",
+        "OptionName": "JWT_REFRESH_SECRET",
+        "Value": "secret"
+    },
+    {
+        "Namespace": "aws:elasticbeanstalk:application:environment",
+        "OptionName": "JWT_SECRET",
+        "Value": "secret"
+    },
+    {
+        "Namespace": "aws:elasticbeanstalk:application:environment",
+        "OptionName": "MONGODB_URI",
+        "Value": "mongodb+srv://codedcoder:1waqyKkBsqYrlwL8@cluster0.dmcfs44.mongodb.net/"
+    },
+    {
+        "Namespace": "aws:elasticbeanstalk:application:environment",
+        "OptionName": "NODE_ENV",
+        "Value": "staging"
+    },
+    {
+        "Namespace": "aws:elasticbeanstalk:application:environment",
+        "OptionName": "PORT",
+        "Value": "8080"
+    },
+    {
+        "Namespace": "aws:elasticbeanstalk:environment",
+        "OptionName": "LoadBalancerType",
+        "Value": "classic"
+    },
+    {
+    "Namespace": "aws:autoscaling:launchconfiguration",
+    "OptionName": "IamInstanceProfile",
+    "Value": "aws-elasticbeanstalk-ec2-role"
+    }
+]

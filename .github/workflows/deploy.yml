@@ -52,18 +52,31 @@ jobs:
         with:
           terraform_version: 1.5.7
 
-      # ✅ Move app.zip where Terraform expects it
-      - name: Move app.zip to Terraform directory
-        run: mv app.zip infra/terraform/app.zip
+      # Determine environment from branch
+      - name: Set environment variables
+        run: |
+          if [[ "${GITHUB_REF##*/}" == "main" ]]; then
+            ENV="production"
+          else
+            ENV="staging"
+          fi
+          echo "ENV=$ENV" >> $GITHUB_ENV
+          echo "TERRAFORM_DIR=infra/terraform/$ENV" >> $GITHUB_ENV
 
-      # ✅ Verify correct placement
-      - name: Check build artifacts
-        run: ls -R infra/terraform
+      # Move app.zip to the correct environment folder
+      - name: Move app.zip to Terraform environment directory
+        run: |
+          mkdir -p $TERRAFORM_DIR
+          mv app.zip "$TERRAFORM_DIR/app.zip"
 
+      # ✅ Initialize and apply Terraform configuration
       - name: Terraform init
-        working-directory: infra/terraform
-        run: terraform init
+        run: |
+          cd $TERRAFORM_DIR
+          terraform init
 
-      - name: Terraform apply (deploy to Elastic Beanstalk)
-        working-directory: infra/terraform
-        run: terraform apply -auto-approve
+      - name: Terraform apply (staging/production)
+        run: |
+          cd $TERRAFORM_DIR
+          terraform apply -auto-approve -var-file="$ENV.tfvars"
+

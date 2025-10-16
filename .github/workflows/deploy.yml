@@ -83,12 +83,12 @@ jobs:
 
             # Initialize Terraform
       - name: Terraform init
-        working-directory: ../terraform
+        working-directory: terraform
         run: terraform init
 
       # Copy build artifact to S3 bucket defined in Terraform
       - name: Upload artifact to Terraform S3 bucket
-        working-directory: ../terraform
+        working-directory: terraform
         run: |
           S3_BUCKET=$(terraform output -raw beanstalk_app_bucket)
           echo "Uploading artifact to $S3_BUCKET..."
@@ -96,7 +96,7 @@ jobs:
 
       # Apply Terraform to create new application version and update environment
       - name: Terraform apply
-        working-directory: ../terraform
+        working-directory: terraform
         run: |
           echo "Applying Terraform to update Elastic Beanstalk..."
           terraform apply -auto-approve \

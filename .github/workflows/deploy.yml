@@ -65,18 +65,18 @@ jobs:
 
       # Move app.zip to the correct environment folder
       - name: Move app.zip to Terraform environment directory
-        run: mv app.zip "$TERRAFORM_DIR/app.zip"
+        run: |
+          mkdir -p $TERRAFORM_DIR
+          mv app.zip "$TERRAFORM_DIR/app.zip"
 
       # ✅ Initialize and apply Terraform configuration
       - name: Terraform init
-        working-directory: "$TERRAFORM_DIR"
         run: |
-          cd "$TERRAFORM_DIR"
+          cd $TERRAFORM_DIR
           terraform init
 
       - name: Terraform apply (staging/production)
-        working-directory: "$TERRAFORM_DIR"
         run: |
-          cd "$TERRAFORM_DIR"
+          cd $TERRAFORM_DIR
           terraform apply -auto-approve -var-file="$ENV.tfvars"
 

@@ -9,12 +9,12 @@ resource "aws_elastic_beanstalk_application" "app" {
 # ==============================================
 # Elastic Beanstalk Application Version (from S3)
 # ==============================================
-resource "aws_s3_bucket" "beanstalk_app_bucket" {
-  bucket = "credcars-beanstalk-${var.env}-${random_id.bucket_suffix.hex}"
-}
-
 resource "random_id" "bucket_suffix" {
   byte_length = 3
+}
+
+resource "aws_s3_bucket" "beanstalk_app_bucket" {
+  bucket = "credcars-beanstalk-${var.env}-${random_id.bucket_suffix.hex}"
 }
 
 resource "aws_s3_object" "app_version" {
@@ -38,8 +38,8 @@ resource "aws_elastic_beanstalk_application_version" "version" {
 # Elastic Beanstalk Environment
 # ==============================================
 resource "aws_elastic_beanstalk_environment" "env" {
-  name                = "${var.app_name}-${var.env}-env"
-  application         = aws_elastic_beanstalk_application.app.name
+  name        = "${var.app_name}-${var.env}-env"
+  application = aws_elastic_beanstalk_application.app.name
   solution_stack_name = "64bit Amazon Linux 2023 v6.6.6 running Node.js 20"
 
   setting {
@@ -57,7 +57,7 @@ resource "aws_elastic_beanstalk_environment" "env" {
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "InstanceType"
-    value     = "t3.micro" # Free-tier eligible
+    value     = "t3.micro"
   }
 
   setting {

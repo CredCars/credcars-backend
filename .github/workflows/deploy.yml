@@ -86,7 +86,7 @@ jobs:
         run: terraform -chdir=infra/terraform init
 
       # Copy build artifact to S3 bucket defined in Terraform
-      - name: Upload artifact to Terraform S3 bucket
+      - name: Upload artifact to Terraform S3 bucket.
         run: |
           # Read S3 bucket from Terraform output
           S3_BUCKET=$(terraform -chdir=infra output -raw beanstalk_app_bucket)

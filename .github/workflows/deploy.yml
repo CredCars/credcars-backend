@@ -81,22 +81,24 @@ jobs:
         with:
           terraform_version: 1.5.7
 
-      # Initialize Terraform
+            # Initialize Terraform
       - name: Terraform init
-        run: terraform -chdir=terraform init
+        working-directory: ./terraform
+        run: terraform init
 
-       # Copy build artifact to S3 bucket defined in Terraform
+      # Copy build artifact to S3 bucket defined in Terraform
       - name: Upload artifact to Terraform S3 bucket
+        working-directory: ./terraform
         run: |
-          # Read S3 bucket from Terraform output
-          S3_BUCKET=$(terraform -chdir=terraform output -raw beanstalk_app_bucket)
+          S3_BUCKET=$(terraform output -raw beanstalk_app_bucket)
           echo "Uploading artifact to $S3_BUCKET..."
-          aws s3 cp ./app.zip s3://$S3_BUCKET/app-${GITHUB_REF##*/}.zip
+          aws s3 cp ../app.zip s3://$S3_BUCKET/app-${GITHUB_REF##*/}.zip
 
       # Apply Terraform to create new application version and update environment
       - name: Terraform apply
+        working-directory: ./terraform
         run: |
           echo "Applying Terraform to update Elastic Beanstalk..."
-          terraform -chdir=terraform apply -auto-approve \
+          terraform apply -auto-approve \
             -var="artifact_key=app-${GITHUB_REF##*/}.zip" \
             -var="env=${GITHUB_REF##*/}"

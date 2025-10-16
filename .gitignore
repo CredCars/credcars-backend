@@ -1,6 +1,22 @@
 # compiled output
 /dist
 /node_modules
+/deploy
+
+# Elastic Beanstalk / build artifacts
+build/
+*.zip
+/.ebextensions
+
+
+# Terraform
+infra/terraform/.terraform/
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.backup
+infra/build/
+*.tfplan
+*.tfstate
+*.tfstate.backup
 
 .env
 # Logs
@@ -34,3 +50,7 @@ lerna-debug.log*
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml

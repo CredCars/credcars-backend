@@ -9,8 +9,8 @@ terraform {
 
   backend "s3" {
     bucket = "credcars-terraform-state"
-    key    = "backend/${var.env}/terraform.tfstate"
-    region = var.aws_region
+    key    = "backend/staging/terraform.tfstate"
+    region = "us-east-1"
   }
 }
 

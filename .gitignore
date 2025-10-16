@@ -10,9 +10,14 @@ build/
 
 
 # Terraform
-infra/terraform/.terraform/
-infra/terraform/terraform.tfstate
-infra/terraform/terraform.tfstate.backup
+infra/production/terraform/.terraform/
+infra/production/terraform/terraform.tfstate
+infra/production/terraform/terraform.tfstate.backup
+
+infra/staging/terraform/.terraform/
+infra/staging/terraform/terraform.tfstate
+infra/staging/terraform/terraform.tfstate.backup
+
 infra/build/
 *.tfplan
 *.tfstate

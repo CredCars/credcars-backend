@@ -56,21 +56,22 @@ jobs:
       - name: Set environment variables
         run: |
           if [[ "${GITHUB_REF##*/}" == "main" ]]; then
-            ENV_FILE="production.tfvars"
+            ENV="production"
           else
-            ENV_FILE="staging.tfvars"
+            ENV="staging"
           fi
-          echo "ENV_FILE=$ENV_FILE" >> $GITHUB_ENV
+          echo "ENV=$ENV" >> $GITHUB_ENV
+          echo "TERRAFORM_DIR=infra/terraform/$ENV" >> $GITHUB_ENV
 
-      # ✅ Move app.zip where Terraform expects it
-      - name: Move app.zip to Terraform directory
-        run: mv app.zip infra/terraform/app.zip
+      # Move app.zip to the correct environment folder
+      - name: Move app.zip to Terraform environment directory
+        run: mv app.zip "$TERRAFORM_DIR/app.zip"
 
       # ✅ Initialize and apply Terraform configuration
       - name: Terraform init
-        working-directory: infra/terraform
+        working-directory: "$TERRAFORM_DIR"
         run: terraform init
 
       - name: Terraform apply (staging/production)
-        working-directory: infra/terraform
-        run: terraform apply -auto-approve -var-file="$ENV_FILE"
+        working-directory: "$TERRAFORM_DIR"
+        run: terraform apply -auto-approve -var-file="$ENV.tfvars"

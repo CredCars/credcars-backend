@@ -81,21 +81,22 @@ jobs:
         working-directory: infra/terraform
         run: terraform init
 
-      - name: Upload artifact to Terraform S3 bucket
+      - name: Debug Terraform output
         shell: bash
         run: |
           echo "Reading Terraform S3 bucket output..."
-
-          # Run terraform and filter the correct output line only
-          RAW_OUTPUT=$(terraform -chdir=infra/terraform output -raw beanstalk_app_bucket 2>/dev/null)
+          RAW_OUTPUT=$(terraform -chdir=infra/terraform output -raw beanstalk_app_bucket || true)
+          
+          echo "----- RAW OUTPUT START -----"
+          echo "$RAW_OUTPUT"
+          echo "----- RAW OUTPUT END -----"
+          
+          echo "Filtering possible bucket name..."
           S3_BUCKET=$(echo "$RAW_OUTPUT" | grep -Eo '^[a-zA-Z0-9.-]+$')
-
+          
           if [ -z "$S3_BUCKET" ]; then
-            echo "❌ Failed to extract bucket name. Got: $RAW_OUTPUT"
+            echo "❌ Could not extract S3 bucket name from Terraform output."
             exit 1
           fi
 
           echo "✅ Found bucket: $S3_BUCKET"
-
-          echo "Uploading app.zip to s3://$S3_BUCKET/"
-          aws s3 cp ./app.zip "s3://$S3_BUCKET/app-${GITHUB_REF##*/}.zip"

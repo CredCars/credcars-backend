@@ -81,7 +81,7 @@ jobs:
         working-directory: infra/terraform
         run: terraform init
 
-      - name: Read Terraform output and upload artifact
+      - name: Read Terraform output and upload artifact.
         shell: bash
         run: |
           echo "Reading Terraform S3 bucket output..."

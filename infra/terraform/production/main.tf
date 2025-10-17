@@ -17,9 +17,3 @@ terraform {
 provider "aws" {
   region = "us-east-1"
 }
-
-resource "aws_elastic_beanstalk_environment" "production" {
-  name        = "Credcars-backend-production-env"
-  application = aws_elastic_beanstalk_application.app.name
-  solution_stack_name = "64bit Amazon Linux 2023 v6.6.6 running Node.js 20"
-}

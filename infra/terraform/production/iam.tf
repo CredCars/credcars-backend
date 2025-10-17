@@ -70,7 +70,7 @@ resource "aws_iam_role_policy_attachment" "eb_service_role_basic" {
 }
 
 resource "time_sleep" "wait_for_iam_propagation" {
-  depends_on = [aws_iam_role_policy_attachment.eb_service_role_basic]
+  depends_on      = [aws_iam_role_policy_attachment.eb_service_role_basic]
   create_duration = "30s"
 }
 
@@ -82,6 +82,32 @@ resource "aws_iam_role_policy_attachment" "eb_service_role_health" {
     aws_iam_role.eb_service_role,
     time_sleep.wait_for_iam_propagation
   ]
+}
+
+# Add inline policy for S3 access
+resource "aws_iam_role_policy" "eb_service_role_s3_access" {
+  name = "eb-service-role-s3-access"
+  role = aws_iam_role.eb_service_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:GetObjectVersion",
+          "s3:PutObject",
+          "s3:PutObjectAcl",
+          "s3:ListBucket"
+        ],
+        Resource = [
+          "arn:aws:s3:::elasticbeanstalk-*",
+          "arn:aws:s3:::elasticbeanstalk-*/*"
+        ]
+      }
+    ]
+  })
 }
 
 # ===========================================================
@@ -127,33 +153,33 @@ resource "aws_iam_user_policy" "github_deployer_policy" {
   })
 }
 
-# Attach access keys for GitHub Actions (store in Secrets)
-resource "aws_iam_access_key" "github_deployer_key" {
+# ===========================================================
+# Safe IAM Access Key Management
+# ===========================================================
+
+data "aws_iam_access_keys" "existing_keys" {
   user = aws_iam_user.github_deployer.name
 }
 
-# Add this inline policy for S3 access
-resource "aws_iam_role_policy" "eb_service_role_s3_access" {
-  name = "eb-service-role-s3-access"
-  role = aws_iam_role.eb_service_role.id
+locals {
+  github_key_count = length(data.aws_iam_access_keys.existing_keys.access_keys)
+}
 
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:GetObjectVersion",
-          "s3:PutObject",
-          "s3:PutObjectAcl",
-          "s3:ListBucket"
-        ]
-        Resource = [
-          "arn:aws:s3:::elasticbeanstalk-*",
-          "arn:aws:s3:::elasticbeanstalk-*/*"
-        ]
-      }
-    ]
-  })
+# Create a new access key only if less than 2 exist
+resource "aws_iam_access_key" "github_deployer_key" {
+  count = local.github_key_count < 2 ? 1 : 0
+  user  = aws_iam_user.github_deployer.name
+}
+
+# Outputs – conditional, so no index errors
+output "github_deployer_access_key_id" {
+  value       = length(aws_iam_access_key.github_deployer_key) > 0 ? aws_iam_access_key.github_deployer_key[0].id : null
+  description = "Access key ID for the GitHub deployer (store this in GitHub Secrets)"
+  sensitive   = true
+}
+
+output "github_deployer_secret_access_key" {
+  value       = length(aws_iam_access_key.github_deployer_key) > 0 ? aws_iam_access_key.github_deployer_key[0].secret : null
+  description = "Secret access key for the GitHub deployer (store this in GitHub Secrets)"
+  sensitive   = true
 }

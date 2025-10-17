@@ -79,25 +79,25 @@ resource "aws_elastic_beanstalk_environment" "env" {
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "JWT_EXPIRES_IN"
-    value     = "1h"
+    value     = var.jwt_expires_in
   }
 
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "JWT_REFRESH_EXPIRES_IN"
-    value     = "24h"
+    value     = var.jwt_refresh_expires_in
   }
 
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "JWT_REFRESH_SECRET"
-    value     = "secret"
+    value     = var.jwt_refresh_secret
   }
 
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "JWT_SECRET"
-    value     = "secret"
+    value     = var.jwt_secret
   }
 
   setting {
@@ -118,102 +118,93 @@ resource "aws_elastic_beanstalk_environment" "env" {
       value = tostring(var.port)
   }
 
-  # =========================
-# HTTPS Listener (443 → 8080)
-# =========================
-setting {
-  namespace = "aws:elbv2:listener:443"
-  name      = "ListenerEnabled"
-  value     = "true"
-}
+  # === Process Settings (App listens on 8080) ===
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "Port"
+    value     = "8080"
+  }
 
-setting {
-  namespace = "aws:elbv2:listener:443"
-  name      = "Protocol"
-  value     = "HTTPS"
-}
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "Protocol"
+    value     = "HTTP"
+  }
 
-setting {
-  namespace = "aws:elbv2:listener:443"
-  name      = "SSLCertificateArns"
-  value     = "arn:aws:acm:us-east-1:YOUR_ACCOUNT_ID:certificate/YOUR_CERTIFICATE_ID"
-}
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "HealthCheckPath"
+    value     = "/api/v1"
+  }
 
-setting {
-  namespace = "aws:elbv2:listener:443"
-  name      = "DefaultProcess"
-  value     = "https"
-}
+  # === HTTPS Listener 443 → Instance 8080 ===
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "ListenerEnabled"
+    value     = "true"
+  }
 
-# Environment process listens on port 8080 for HTTPS
-setting {
-  namespace = "aws:elasticbeanstalk:environment:process:https"
-  name      = "Port"
-  value     = "8080"
-}
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "Protocol"
+    value     = "HTTPS"
+  }
 
-setting {
-  namespace = "aws:elasticbeanstalk:environment:process:https"
-  name      = "Protocol"
-  value     = "HTTP"
-}
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "SSLCertificateArns"
+    value     = "arn:aws:acm:us-east-1:211289421537:certificate/7e36ba6d-cac7-4b1d-91d2-dcbb6055c39a"
+  }
 
-setting {
-  namespace = "aws:elasticbeanstalk:environment:process:https"
-  name      = "HealthCheckPath"
-  value     = "/api/v1"
-}
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "DefaultProcess"
+    value     = "default"
+  }
 
-setting {
-  namespace = "aws:elasticbeanstalk:environment:process:https"
-  name      = "HealthCheckProtocol"
-  value     = "HTTP"
-}
+  # === HTTP Listener 80 → Instance 80 ===
+  setting {
+    namespace = "aws:elbv2:listener:80"
+    name      = "ListenerEnabled"
+    value     = "true"
+  }
 
-# =========================
-# HTTP Listener (80 → 80)
-# =========================
-setting {
-  namespace = "aws:elbv2:listener:80"
-  name      = "ListenerEnabled"
-  value     = "true"
-}
+  setting {
+    namespace = "aws:elbv2:listener:80"
+    name      = "Protocol"
+    value     = "HTTP"
+  }
 
-setting {
-  namespace = "aws:elbv2:listener:80"
-  name      = "Protocol"
-  value     = "HTTP"
-}
+  setting {
+    namespace = "aws:elbv2:listener:80"
+    name      = "DefaultProcess"
+    value     = "default"
+  }
 
-setting {
-  namespace = "aws:elbv2:listener:80"
-  name      = "DefaultProcess"
-  value     = "http"
-}
+  # === Process Settings for HTTP listener on 80 ===
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "Port"
+    value     = "80"
+  }
 
-# Environment process listens on port 80 for HTTP
-setting {
-  namespace = "aws:elasticbeanstalk:environment:process:http"
-  name      = "Port"
-  value     = "80"
-}
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "Protocol"
+    value     = "HTTP"
+  }
 
-setting {
-  namespace = "aws:elasticbeanstalk:environment:process:http"
-  name      = "Protocol"
-  value     = "HTTP"
-}
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "HealthCheckPath"
+    value     = "/api/v1"
+  }
 
-setting {
-  namespace = "aws:elasticbeanstalk:environment:process:http"
-  name      = "HealthCheckPath"
-  value     = "/api/v1"
-}
-
-setting {
-  namespace = "aws:elasticbeanstalk:environment:process:http"
-  name      = "HealthCheckProtocol"
-  value     = "HTTP"
-}
+  # ======================
+  # Prevent accidental destroy
+  # ======================
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 

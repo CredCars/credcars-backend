@@ -20,8 +20,8 @@ resource "aws_s3_bucket" "beanstalk_app_bucket" {
 resource "aws_s3_object" "app_version" {
   bucket = aws_s3_bucket.beanstalk_app_bucket.id
   key    = "app-${var.env}.zip"
-  source = "${path.module}/app.zip"
-  etag   = filemd5("${path.module}/app.zip")
+  source = "${path.module}/${var.app_zip_path}"
+  etag   = filemd5("${path.module}/${var.app_zip_path}")
 
 
 
@@ -42,6 +42,9 @@ resource "aws_elastic_beanstalk_environment" "env" {
   application = aws_elastic_beanstalk_application.app.name
   solution_stack_name = "64bit Amazon Linux 2023 v6.6.6 running Node.js 20"
 
+  version_label = aws_elastic_beanstalk_application_version.version.name
+
+  # === IAM & Instance Settings ===
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "IamInstanceProfile"
@@ -57,7 +60,44 @@ resource "aws_elastic_beanstalk_environment" "env" {
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "InstanceType"
-    value     = "t3.micro"
+    value     = var.instance_type
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment"
+    name      = "LoadBalancerType"
+    value     = var.load_balancer_type
+  }
+
+  # === Application Environment Variables ===
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "JWT_EXPIRES_IN"
+    value     = "1h"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "JWT_REFRESH_EXPIRES_IN"
+    value     = "24h"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "JWT_REFRESH_SECRET"
+    value     = "secret"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "JWT_SECRET"
+    value     = "secret"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "MONGODB_URI"
+    value     = var.database_url
   }
 
   setting {
@@ -69,8 +109,7 @@ resource "aws_elastic_beanstalk_environment" "env" {
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "PORT"
-    value     = "8080"
+    value     = var.port
   }
-
-  version_label = aws_elastic_beanstalk_application_version.version.name
 }
+

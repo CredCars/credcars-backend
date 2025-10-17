@@ -115,7 +115,7 @@ resource "aws_iam_role_policy" "eb_service_role_s3_access" {
 # ===========================================================
 
 resource "aws_iam_user" "github_deployer" {
-  name = "github-deployer"
+  name = "github-deployer-${var.env}"
 }
 
 resource "aws_iam_user_policy" "github_deployer_policy" {
@@ -167,19 +167,19 @@ locals {
 
 # Create a new access key only if less than 2 exist
 resource "aws_iam_access_key" "github_deployer_key" {
-  count = local.github_key_count < 2 ? 1 : 0
+  # count = local.github_key_count < 2 ? 1 : 0
   user  = aws_iam_user.github_deployer.name
 }
 
 # Outputs – conditional, so no index errors
 output "github_deployer_access_key_id" {
-  value       = length(aws_iam_access_key.github_deployer_key) > 0 ? aws_iam_access_key.github_deployer_key[0].id : null
+  value       = length(aws_iam_access_key.github_deployer_key) > 0 ? aws_iam_access_key.github_deployer_key.id : null
   description = "Access key ID for the GitHub deployer (store this in GitHub Secrets)"
   sensitive   = true
 }
 
 output "github_deployer_secret_access_key" {
-  value       = length(aws_iam_access_key.github_deployer_key) > 0 ? aws_iam_access_key.github_deployer_key[0].secret : null
+  value       = length(aws_iam_access_key.github_deployer_key) > 0 ? aws_iam_access_key.github_deployer_key.secret : null
   description = "Secret access key for the GitHub deployer (store this in GitHub Secrets)"
   sensitive   = true
 }

@@ -42,16 +42,19 @@ variable "app_zip_path" {
 variable "database_url" {
   description = "Your database's url"
   type        = string
+  sensitive   = true
 }
 
 variable "jwt_secret" {
   description = "JWT SECRET"
   type        = string
+  sensitive   = true
 }
 
 variable "jwt_refresh_secret" {
   description = "JWT REFRESH SECRET"
   type        = string
+  sensitive   = true
 }
 
 variable "jwt_expires_in" {

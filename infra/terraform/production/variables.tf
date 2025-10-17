@@ -42,5 +42,4 @@ variable "app_zip_path" {
 variable "database_url" {
   description = "Your database's url"
   type        = string
-  default     = "mongodb+srv://codedcoder:g9cFLqxFpIy7FEiG@cluster0.nkje12q.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 }

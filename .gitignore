@@ -21,9 +21,6 @@ infra/build/
 infra/terraform/staging/.terraform.lock.hcl
 infra/terraform/production/.terraform.lock.hcl
 
-infra/terraform/production/production.tfvars
-infra/terraform/staging/staging.tfvars
-*.tfvars
 *.tfplan
 *.tfstate
 *.tfstate.backup

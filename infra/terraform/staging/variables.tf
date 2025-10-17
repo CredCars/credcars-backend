@@ -43,3 +43,23 @@ variable "database_url" {
   description = "Your database's url"
   type        = string
 }
+
+variable "jwt_secret" {
+  description = "JWT SECRET"
+  type        = string
+}
+
+variable "jwt_refresh_secret" {
+  description = "JWT REFRESH SECRET"
+  type        = string
+}
+
+variable "jwt_expires_in" {
+  description = "JWT EXPIRES IN"
+  type        = string
+}
+
+variable "jwt_refresh_expires_in" {
+  description = "JWT REFRESH EXPIRES IN"
+  type        = string
+}

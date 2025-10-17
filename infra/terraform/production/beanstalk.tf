@@ -73,25 +73,25 @@ resource "aws_elastic_beanstalk_environment" "env" {
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "JWT_EXPIRES_IN"
-    value     = "1h"
+    value     = var.jwt_expires_in
   }
 
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "JWT_REFRESH_EXPIRES_IN"
-    value     = "24h"
+    value     = var.jwt_refresh_expires_in
   }
 
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "JWT_REFRESH_SECRET"
-    value     = "secret"
+    value     = var.jwt_refresh_secret
   }
 
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "JWT_SECRET"
-    value     = "secret"
+    value     = var.jwt_secret
   }
 
    setting {
@@ -109,6 +109,6 @@ resource "aws_elastic_beanstalk_environment" "env" {
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "PORT"
-    value     = var.port
+      value = tostring(var.port)
   }
 }

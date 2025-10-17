@@ -69,6 +69,18 @@ jobs:
         run: |
           mkdir -p $TERRAFORM_DIR
           mv app.zip "$TERRAFORM_DIR/app.zip"
+       # ✅ Create terraform.tfvars dynamically (from secrets)
+      - name: Create terraform.tfvars from secrets
+        run: |
+          cd $TERRAFORM_DIR
+          cat > terraform.tfvars <<EOF
+          database_url = "${{ secrets.MONGODB_URI }}"
+          jwt_secret = "${{ secrets.JWT_SECRET }}"
+          jwt_refresh_secret = "${{ secrets.JWT_REFRESH_SECRET }}"
+          jwt_expires_in = "${{ secrets.JWT_EXPIRES_IN }}"
+          jwt_refresh_expires_in = "${{ secrets.JWT_REFRESH_EXPIRES_IN }}"
+          EOF
+          echo "✅ terraform.tfvars created successfully"
 
       # ✅ Initialize and apply Terraform configuration
       - name: Terraform init

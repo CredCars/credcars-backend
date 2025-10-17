@@ -64,6 +64,12 @@ resource "aws_elastic_beanstalk_environment" "env" {
   }
 
   setting {
+    namespace = "aws:elbv2:loadbalancer"
+    name      = "IpAddressType"
+    value     = "ipv4"
+  }
+
+  setting {
     namespace = "aws:elasticbeanstalk:environment"
     name      = "LoadBalancerType"
     value     = var.load_balancer_type

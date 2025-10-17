@@ -24,7 +24,7 @@ variable "instance_type" {
 variable "load_balancer_type" {
   description = "Elastic Beanstalk application name"
   type        = string
-  default = "classic"
+  default = "application"
 }
 
 variable "port" {

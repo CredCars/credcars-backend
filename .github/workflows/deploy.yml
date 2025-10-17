@@ -79,6 +79,7 @@ jobs:
           jwt_refresh_secret = "${{ secrets.JWT_REFRESH_SECRET }}"
           jwt_expires_in = "${{ secrets.JWT_EXPIRES_IN }}"
           jwt_refresh_expires_in = "${{ secrets.JWT_REFRESH_EXPIRES_IN }}"
+          env = "${{ secrets.NODE_ENV }}"
           EOF
           echo "✅ terraform.tfvars created successfully"
 

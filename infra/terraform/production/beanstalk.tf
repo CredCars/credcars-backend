@@ -117,4 +117,102 @@ resource "aws_elastic_beanstalk_environment" "env" {
     name      = "PORT"
       value = tostring(var.port)
   }
+
+  # =========================
+  # HTTPS Listener (443 → 8080)
+  # =========================
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "ListenerEnabled"
+    value     = "true"
+  }
+
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "Protocol"
+    value     = "HTTPS"
+  }
+
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "SSLCertificateArns"
+    value     = "arn:aws:acm:us-east-1:YOUR_ACCOUNT_ID:certificate/YOUR_CERTIFICATE_ID"
+  }
+
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "DefaultProcess"
+    value     = "https"
+  }
+
+  # Environment process listens on port 8080 for HTTPS
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:https"
+    name      = "Port"
+    value     = "8080"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:https"
+    name      = "Protocol"
+    value     = "HTTP"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:https"
+    name      = "HealthCheckPath"
+    value     = "/api/v1"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:https"
+    name      = "HealthCheckProtocol"
+    value     = "HTTP"
+  }
+
+  # =========================
+  # HTTP Listener (80 → 80)
+  # =========================
+  setting {
+    namespace = "aws:elbv2:listener:80"
+    name      = "ListenerEnabled"
+    value     = "true"
+  }
+
+  setting {
+    namespace = "aws:elbv2:listener:80"
+    name      = "Protocol"
+    value     = "HTTP"
+  }
+
+  setting {
+    namespace = "aws:elbv2:listener:80"
+    name      = "DefaultProcess"
+    value     = "http"
+  }
+
+  # Environment process listens on port 80 for HTTP
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:http"
+    name      = "Port"
+    value     = "80"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:http"
+    name      = "Protocol"
+    value     = "HTTP"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:http"
+    name      = "HealthCheckPath"
+    value     = "/api/v1"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:http"
+    name      = "HealthCheckProtocol"
+    value     = "HTTP"
+  }
 }

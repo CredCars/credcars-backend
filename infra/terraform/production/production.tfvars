@@ -1,4 +1,5 @@
 env = "production"
 aws_region = "us-east-1"
 app_name = "Credcars-backend"
-instance_type= "t3.micro"
+instance_type = "t3.micro"
+load_balancer_type = "classic"

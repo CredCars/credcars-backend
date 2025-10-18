@@ -207,4 +207,9 @@ resource "aws_elastic_beanstalk_environment" "env" {
   lifecycle {
     prevent_destroy = true
   }
+
+  tags = {
+    Environment = var.env
+    Project     = var.app_name
+  }
 }

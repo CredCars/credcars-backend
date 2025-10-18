@@ -34,7 +34,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build-and-test
-    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' &&'staging' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -45,9 +45,9 @@ jobs:
 
       - uses: aws-actions/configure-aws-credentials@v3
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ vars.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ vars.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - uses: hashicorp/setup-terraform@v2
         with:
@@ -70,16 +70,16 @@ jobs:
           mkdir -p $TERRAFORM_DIR
           mv app.zip "$TERRAFORM_DIR/app.zip"
 
-      - name: Create $ENV.tfvars from secrets
+      - name: Create $ENV.tfvars from environment variables
         run: |
           cd $TERRAFORM_DIR
           cat > $ENV.tfvars <<EOF
-          database_url = "${{ secrets.MONGODB_URI }}"
-          jwt_secret = "${{ secrets.JWT_SECRET }}"
-          jwt_refresh_secret = "${{ secrets.JWT_REFRESH_SECRET }}"
-          jwt_expires_in = "${{ secrets.JWT_EXPIRES_IN }}"
-          jwt_refresh_expires_in = "${{ secrets.JWT_REFRESH_EXPIRES_IN }}"
-          env = "${{ secrets.NODE_ENV }}"
+          database_url = "${MONGODB_URI}"
+          jwt_secret = "${JWT_SECRET}"
+          jwt_refresh_secret = "${JWT_REFRESH_SECRET}"
+          jwt_expires_in = "${JWT_EXPIRES_IN}"
+          jwt_refresh_expires_in = "${JWT_REFRESH_EXPIRES_IN}"
+          env = "${NODE_ENV}"
           EOF
           echo "✅ $ENV.tfvars created successfully"
 
@@ -87,10 +87,10 @@ jobs:
       - name: Terraform init
         run: |
           cd $TERRAFORM_DIR
-          terraform init
+          terraform init -reconfigure
 
       - name: Terraform apply (staging/production)
         run: |
           cd $TERRAFORM_DIR
-          terraform apply -auto-approve -var-file="$ENV.tfvars"
+          terraform apply -auto-approve -target=aws_iam_user.github_deployer -target=aws_iam_user_policy.github_deployer_policy -var-file="$ENV.tfvars"
 

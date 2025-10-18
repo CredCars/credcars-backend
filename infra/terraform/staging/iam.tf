@@ -115,7 +115,7 @@ resource "aws_iam_role_policy" "eb_service_role_s3_access" {
 # ===========================================================
 
 resource "aws_iam_user" "github_deployer" {
-  name = "github-deployer-${var.env}"
+  name = "github-deployer-staging"
 }
 
 resource "aws_iam_user_policy" "github_deployer_policy" {

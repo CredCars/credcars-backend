@@ -87,7 +87,7 @@ jobs:
       - name: Terraform init
         run: |
           cd $TERRAFORM_DIR
-          terraform init
+          terraform init -reconfigure
 
       - name: Terraform apply (staging/production)
         run: |

@@ -20,8 +20,8 @@ resource "aws_s3_bucket" "beanstalk_app_bucket" {
 resource "aws_s3_object" "app_version" {
   bucket = aws_s3_bucket.beanstalk_app_bucket.id
   key    = "app-${var.env}.zip"
-  source = "${path.module}/app.zip"
-  etag   = filemd5("${path.module}/app.zip")
+  source = "${path.module}/${var.app_zip_path}"
+  etag   = filemd5("${path.module}/${var.app_zip_path}")
 
 
 
@@ -42,6 +42,9 @@ resource "aws_elastic_beanstalk_environment" "env" {
   application = aws_elastic_beanstalk_application.app.name
   solution_stack_name = "64bit Amazon Linux 2023 v6.6.6 running Node.js 20"
 
+  version_label = aws_elastic_beanstalk_application_version.version.name
+
+  # === IAM & Instance Settings ===
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "IamInstanceProfile"
@@ -57,7 +60,50 @@ resource "aws_elastic_beanstalk_environment" "env" {
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "InstanceType"
-    value     = "t3.micro"
+    value     = var.instance_type
+  }
+
+  setting {
+    namespace = "aws:elbv2:loadbalancer"
+    name      = "IpAddressType"
+    value     = "ipv4"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment"
+    name      = "LoadBalancerType"
+    value     = var.load_balancer_type
+  }
+
+  # === Application Environment Variables ===
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "JWT_EXPIRES_IN"
+    value     = var.jwt_expires_in
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "JWT_REFRESH_EXPIRES_IN"
+    value     = var.jwt_refresh_expires_in
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "JWT_REFRESH_SECRET"
+    value     = var.jwt_refresh_secret
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "JWT_SECRET"
+    value     = var.jwt_secret
+  }
+
+   setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "MONGODB_URI"
+    value     = var.database_url
   }
 
   setting {
@@ -69,8 +115,96 @@ resource "aws_elastic_beanstalk_environment" "env" {
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "PORT"
+      value = tostring(var.port)
+  }
+
+  # === Process Settings (App listens on 8080) ===
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "Port"
     value     = "8080"
   }
 
-  version_label = aws_elastic_beanstalk_application_version.version.name
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "Protocol"
+    value     = "HTTP"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "HealthCheckPath"
+    value     = "/api/v1"
+  }
+
+
+  # === HTTPS Listener 443 → Instance 8080 ===
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "ListenerEnabled"
+    value     = "true"
+  }
+
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "Protocol"
+    value     = "HTTPS"
+  }
+
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "SSLCertificateArns"
+    value     = "arn:aws:acm:us-east-1:211289421537:certificate/7e36ba6d-cac7-4b1d-91d2-dcbb6055c39a"
+  }
+
+  setting {
+    namespace = "aws:elbv2:listener:443"
+    name      = "DefaultProcess"
+    value     = "default"
+  }
+
+  # === HTTP Listener 80 → Instance 80 ===
+  setting {
+    namespace = "aws:elbv2:listener:80"
+    name      = "ListenerEnabled"
+    value     = "true"
+  }
+
+  setting {
+    namespace = "aws:elbv2:listener:80"
+    name      = "Protocol"
+    value     = "HTTP"
+  }
+
+  setting {
+    namespace = "aws:elbv2:listener:80"
+    name      = "DefaultProcess"
+    value     = "default"
+  }
+
+  # === Process Settings for HTTP listener on 80 ===
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "Port"
+    value     = "80"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "Protocol"
+    value     = "HTTP"
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:environment:process:default"
+    name      = "HealthCheckPath"
+    value     = "/api/v1"
+  }
+
+  # ======================
+  # Prevent accidental destroy
+  # ======================
+  lifecycle {
+    prevent_destroy = true
+  }
 }

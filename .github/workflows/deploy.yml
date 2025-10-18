@@ -34,6 +34,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build-and-test
+    environment: ${{ github.ref_name == 'main' || 'staging' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -68,6 +69,19 @@ jobs:
         run: |
           mkdir -p $TERRAFORM_DIR
           mv app.zip "$TERRAFORM_DIR/app.zip"
+
+      - name: Create $ENV.tfvars from secrets
+        run: |
+          cd $TERRAFORM_DIR
+          cat > $ENV.tfvars <<EOF
+          database_url = "${{ secrets.MONGODB_URI }}"
+          jwt_secret = "${{ secrets.JWT_SECRET }}"
+          jwt_refresh_secret = "${{ secrets.JWT_REFRESH_SECRET }}"
+          jwt_expires_in = "${{ secrets.JWT_EXPIRES_IN }}"
+          jwt_refresh_expires_in = "${{ secrets.JWT_REFRESH_EXPIRES_IN }}"
+          env = "${{ secrets.NODE_ENV }}"
+          EOF
+          echo "✅ $ENV.tfvars created successfully"
 
       # ✅ Initialize and apply Terraform configuration
       - name: Terraform init

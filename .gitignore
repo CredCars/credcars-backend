@@ -8,17 +8,19 @@ build/
 *.zip
 /.ebextensions
 
-
 # Terraform
-infra/production/terraform/.terraform/
-infra/production/terraform/terraform.tfstate
-infra/production/terraform/terraform.tfstate.backup
+infra/terraform/production/.terraform/*
+infra/terraform/production/terraform.tfstate
+infra/terraform/production/terraform.tfstate.backup
 
-infra/staging/terraform/.terraform/
-infra/staging/terraform/terraform.tfstate
-infra/staging/terraform/terraform.tfstate.backup
+infra/terraform/staging/.terraform/*
+infra/terraform/staging/terraform.tfstate
+infra/terraform/staging/terraform.tfstate.backup
 
 infra/build/
+infra/terraform/staging/.terraform.lock.hcl
+infra/terraform/production/.terraform.lock.hcl
+
 *.tfplan
 *.tfstate
 *.tfstate.backup

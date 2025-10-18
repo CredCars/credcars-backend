@@ -92,5 +92,5 @@ jobs:
       - name: Terraform apply (staging/production)
         run: |
           cd $TERRAFORM_DIR
-          terraform apply -auto-approve -var-file="$ENV.tfvars"
+          terraform apply -auto-approve -target=aws_iam_user.github_deployer -target=aws_iam_user_policy.github_deployer_policy -var-file="$ENV.tfvars"
 

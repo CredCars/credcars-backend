@@ -79,7 +79,7 @@ export class AuthController {
     try {
       const token = await this.authService.login(body);
 
-      return this.responseService.json(res, 200, 'Login successfulll', token);
+      return this.responseService.json(res, 200, 'Login successful', token);
     } catch (error) {
       throw error;
     }

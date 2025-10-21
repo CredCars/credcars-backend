@@ -15,6 +15,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Cache node modules
+        uses: actions/cache@v3
+        with:
+          # Key should change if package-lock.json changes
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          # Restores cache if key exists
+          path: ~/.npm
 
       - run: npm ci
       - run: npm run lint
@@ -79,6 +86,8 @@ jobs:
           jwt_refresh_secret = "${JWT_REFRESH_SECRET}"
           jwt_expires_in = "${JWT_EXPIRES_IN}"
           jwt_refresh_expires_in = "${JWT_REFRESH_EXPIRES_IN}"
+          allowed_origins = "${ALLOWED_ORIGINS}"
+          frontend_url = "${FRONTEND_URL}"
           env = "${NODE_ENV}"
           EOF
           echo "✅ $ENV.tfvars created successfully"

@@ -66,3 +66,13 @@ variable "jwt_refresh_expires_in" {
   description = "JWT REFRESH EXPIRES IN"
   type        = string
 }
+
+variable "allowed_origins" {
+  description = "ALLOWED ORIGINS"
+  type        = string
+}
+
+variable "frontend_url" {
+  description = "FRONTEND URL"
+  type        = string
+}

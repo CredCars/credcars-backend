@@ -30,13 +30,13 @@ jobs:
 
       - name: Package for Elastic Beanstalk
         run: |
-          zip -r app-${ENV}.zip dist package.json package-lock.json Procfile .ebextensions -x "*.git*" || true
-          unzip -l app-${ENV}.zip | head -20
+          zip -r app.zip dist package.json package-lock.json Procfile .ebextensions -x "*.git*" || true
+          unzip -l app.zip | head -20
 
       - uses: actions/upload-artifact@v4
         with:
           name: eb-artifact
-          path: app-${ENV}.zip
+          path: app.zip
 
   deploy:
     runs-on: ubuntu-latest
@@ -75,7 +75,7 @@ jobs:
       - name: Move app.zip to Terraform environment directory
         run: |
           mkdir -p $TERRAFORM_DIR
-          mv app-${ENV}.zip "$TERRAFORM_DIR/app-${ENV}.zip"
+          mv app.zip "$TERRAFORM_DIR/app-${ENV}.zip"
 
       - name: Create $ENV.tfvars from environment variables
         run: |

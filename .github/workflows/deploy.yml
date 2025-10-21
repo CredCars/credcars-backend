@@ -75,7 +75,7 @@ jobs:
       - name: Move app.zip to Terraform environment directory
         run: |
           mkdir -p $TERRAFORM_DIR
-          mv app.zip "$TERRAFORM_DIR/app.zip"
+          mv app.zip "$TERRAFORM_DIR/app-${ENV}.zip"
 
       - name: Create $ENV.tfvars from environment variables
         run: |
@@ -102,4 +102,23 @@ jobs:
         run: |
           cd $TERRAFORM_DIR
           terraform apply -auto-approve -target=aws_iam_user.github_deployer -target=aws_iam_user_policy.github_deployer_policy -var-file="$ENV.tfvars"
+      
+      - name: Deploy to Elastic Beanstalk
+        run: |
+          VERSION_LABEL="v-${GITHUB_RUN_NUMBER}-$ENV"
+          # Upload app.zip to S3
+          aws s3 cp "$TERRAFORM_DIR/app-${ENV}.zip" s3://elasticbeanstalk-${{ vars.AWS_REGION }}-${{ vars.AWS_ACCOUNT_ID }}/app-${ENV}.zip
+
+          # Create new EB version
+          aws elasticbeanstalk create-application-version \
+            --application-name Credcars-backend \
+            --version-label $VERSION_LABEL \
+            --source-bundle S3Bucket="elasticbeanstalk-${{ vars.AWS_REGION }}-${{ vars.AWS_ACCOUNT_ID }}",S3Key="app-${ENV}.zip"
+
+          # Update EB environment
+          aws elasticbeanstalk update-environment \
+            --application-name Credcars-backend \
+            --environment-name Credcars-backend-$ENV-env \
+            --version-label $VERSION_LABEL
+
 

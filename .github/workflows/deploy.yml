@@ -102,6 +102,7 @@ jobs:
         run: |
           cd $TERRAFORM_DIR
           terraform apply -auto-approve -target=aws_iam_user.github_deployer -target=aws_iam_user_policy.github_deployer_policy -var-file="$ENV.tfvars"
+      
       - name: Deploy to Elastic Beanstalk
         run: |
           VERSION_LABEL="v-${GITHUB_RUN_NUMBER}"
@@ -117,7 +118,7 @@ jobs:
           # Update EB environment
           aws elasticbeanstalk update-environment \
             --application-name Credcars-backend \
-            --environment-name $ENV \
+            --environment-name Credcars-backend-$ENV-env \
             --version-label $VERSION_LABEL
 
 

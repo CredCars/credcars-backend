@@ -102,4 +102,22 @@ jobs:
         run: |
           cd $TERRAFORM_DIR
           terraform apply -auto-approve -target=aws_iam_user.github_deployer -target=aws_iam_user_policy.github_deployer_policy -var-file="$ENV.tfvars"
+      - name: Deploy to Elastic Beanstalk
+        run: |
+          VERSION_LABEL="v-${GITHUB_RUN_NUMBER}"
+          # Upload app.zip to S3
+          aws s3 cp "$TERRAFORM_DIR/app.zip" s3://elasticbeanstalk-${{ vars.AWS_REGION }}-${{ vars.AWS_ACCOUNT_ID }}/app.zip
+
+          # Create new EB version
+          aws elasticbeanstalk create-application-version \
+            --application-name Credcars-backend \
+            --version-label $VERSION_LABEL \
+            --source-bundle S3Bucket="elasticbeanstalk-${{ vars.AWS_REGION }}-${{ vars.AWS_ACCOUNT_ID }}",S3Key="app.zip"
+
+          # Update EB environment
+          aws elasticbeanstalk update-environment \
+            --application-name Credcars-backend \
+            --environment-name $ENV \
+            --version-label $VERSION_LABEL
+
 

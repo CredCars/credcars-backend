@@ -44,6 +44,35 @@ resource "aws_elastic_beanstalk_environment" "env" {
 
   version_label = aws_elastic_beanstalk_application_version.version.name
 
+  depends_on = [
+    aws_iam_instance_profile.eb_ec2_instance_profile,
+    aws_iam_role.eb_service_role
+  ]
+
+  setting {
+    namespace = "aws:ec2:vpc"
+    name      = "VPCId"
+    value     = "vpc-0832ca0176106f346"
+  }
+
+  setting {
+    namespace = "aws:ec2:vpc"
+    name      = "Subnets"
+    value     = "subnet-045226bc21fc9c17d,subnet-05d56b7fe52566bb8,subnet-061eafe383403eb63"
+  }
+
+  setting {
+    namespace = "aws:ec2:vpc"
+    name      = "ELBSubnets"
+    value     = "subnet-045226bc21fc9c17d,subnet-05d56b7fe52566bb8,subnet-061eafe383403eb63"
+  }
+
+  setting {
+    namespace = "aws:ec2:vpc"
+    name      = "AssociatePublicIpAddress"
+    value     = "true"
+  }
+
   # === IAM & Instance Settings ===
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
@@ -115,7 +144,19 @@ resource "aws_elastic_beanstalk_environment" "env" {
   setting {
     namespace = "aws:elasticbeanstalk:application:environment"
     name      = "PORT"
-      value = tostring(var.port)
+    value     = tostring(var.port)
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "ALLOWED_ORIGINS"
+    value     = var.allowed_origins
+  }
+
+  setting {
+    namespace = "aws:elasticbeanstalk:application:environment"
+    name      = "FRONTEND_URL"
+    value     = var.frontend_url
   }
 
   # === Process Settings (App listens on 8080) ===
@@ -153,7 +194,7 @@ resource "aws_elastic_beanstalk_environment" "env" {
   setting {
     namespace = "aws:elbv2:listener:443"
     name      = "SSLCertificateArns"
-    value     = "arn:aws:acm:us-east-1:211289421537:certificate/7e36ba6d-cac7-4b1d-91d2-dcbb6055c39a"
+    value     = "arn:aws:acm:us-east-1:211289421537:certificate/a7c99eca-1c33-4032-8be2-1ba28d4fa38e"
   }
 
   setting {
@@ -205,6 +246,11 @@ resource "aws_elastic_beanstalk_environment" "env" {
   # ======================
   lifecycle {
     prevent_destroy = true
+  }
+
+  tags = {
+    Environment = var.env
+    Project     = var.app_name
   }
 }
 

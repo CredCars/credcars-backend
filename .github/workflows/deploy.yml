@@ -92,7 +92,7 @@ jobs:
           EOF
           echo "✅ $ENV.tfvars created successfully"
 
-      # ✅ Initialize and apply Terraform configuration
+      # ✅ Initialize and apply Terraform's configuration
       - name: Terraform init
         run: |
           cd $TERRAFORM_DIR

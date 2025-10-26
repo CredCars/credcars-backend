@@ -124,43 +124,44 @@ jobs:
           # Deploy to Environment
           if [ "$ENV" = "production" ]; then
             echo "Deploying to GREEN environment first..."
+            # Deploy to GREEN
             aws elasticbeanstalk update-environment \
               --application-name Credcars-backend \
               --environment-name $EB_GREEN_ENV \
               --version-label $VERSION_LABEL
 
-            echo "⏳ Waiting for GREEN environment health to turn Green..."
+            echo "⏳ Waiting for GREEN environment to be healthy..."
             for i in {1..60}; do
+              STATUS=$(aws elasticbeanstalk describe-environments \
+                --environment-names $EB_GREEN_ENV \
+                --query "Environments[0].Status" --output text)
               HEALTH=$(aws elasticbeanstalk describe-environments \
                 --environment-names $EB_GREEN_ENV \
-                --query "Environments[0].Health" \
-                --output text)
-              echo "Current Health: $HEALTH"
-              if [ "$HEALTH" == "Green" ]; then
-                echo "✅ GREEN environment is healthy!"
+                --query "Environments[0].Health" --output text)
+
+              echo "Status: $STATUS | Health: $HEALTH"
+              if [ "$STATUS" == "Ready" ] && [ "$HEALTH" == "Green" ]; then
+                echo "✅ GREEN environment is ready and healthy!"
                 break
               fi
               sleep 20
             done
 
-            echo "🔁 Swapping BLUE and GREEN environments..."
-            aws elasticbeanstalk swap-environment-cnames \
-              --source-environment-name $EB_GREEN_ENV \
-              --destination-environment-name $EB_ENV
-
-            echo "✅ Blue/Green swap complete."
+            # Swap only if healthy
+            if [ "$STATUS" == "Ready" ] && [ "$HEALTH" == "Green" ]; then
+              echo "🔁 Swapping BLUE (live) and GREEN (new) environments..."
+              aws elasticbeanstalk swap-environment-cnames \
+                --source-environment-name $EB_ENV \
+                --destination-environment-name $EB_GREEN_ENV
+              echo "✅ Swap complete. GREEN is now live."
+            else
+              echo "❌ Deployment failed. GREEN environment not healthy. No swap performed."
+              exit 1
+            fi
           else
-            echo "Deploying to STAGING environment..."
+            echo "🧪 Deploying to STAGING environment..."
             aws elasticbeanstalk update-environment \
               --application-name Credcars-backend \
               --environment-name $EB_ENV \
               --version-label $VERSION_LABEL
           fi
-
-          # Update EB environment
-          #aws elasticbeanstalk update-environment \
-          #  --application-name Credcars-backend \
-          #  --environment-name Credcars-backend-$ENV-env \
-          #  --version-label $VERSION_LABEL
-
-

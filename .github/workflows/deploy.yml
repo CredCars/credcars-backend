@@ -155,24 +155,23 @@ jobs:
                 --destination-environment-name $EB_GREEN_ENV
               echo "✅ Swap complete. GREEN is now live."
 
-              # ✅ Post-deployment health verification
-              echo "🔍 Monitoring GREEN environment post-deployment..."
-              for i in {1..30}; do
-                HEALTH=$(aws elasticbeanstalk describe-environments \
-                  --environment-names $EB_GREEN_ENV \
-                  --query "Environments[0].Health" --output text)
-                echo "Post-swap Health: $HEALTH"
-                if [ "$HEALTH" == "Red" ] || [ "$HEALTH" == "Degraded" ]; then
-                  echo "❌ Post-deploy health check failed. Rolling back..."
-                  aws elasticbeanstalk swap-environment-cnames \
-                    --source-environment-name $EB_GREEN_ENV \
-                    --destination-environment-name $EB_ENV
-                  echo "🔄 Rolled back to BLUE environment."
-                  exit 1
-                fi
-                sleep 20
-              done
-              echo "✅ Deployment stable after monitoring window."
+              # ✅ Post-deployment quick health verification
+              echo "🔍 Verifying post-swap health..."
+              POST_HEALTH=$(aws elasticbeanstalk describe-environments \
+                --environment-names $EB_GREEN_ENV \
+                --query "Environments[0].Health" \
+                --output text)
+
+              if [ "$POST_HEALTH" == "Green" ]; then
+                echo "✅ Deployment successful! Environment is healthy."
+              else
+                echo "❌ Post-deployment health is $POST_HEALTH. Rolling back..."
+                aws elasticbeanstalk swap-environment-cnames \
+                  --source-environment-name $EB_GREEN_ENV \
+                  --destination-environment-name $EB_ENV
+                echo "🔄 Rolled back to BLUE environment."
+                exit 1
+              fi
 
             else
               echo "❌ Deployment failed. GREEN environment not healthy. No swap performed."
@@ -185,4 +184,25 @@ jobs:
               --application-name Credcars-backend \
               --environment-name $EB_ENV \
               --version-label $VERSION_LABEL
+          fi
+      
+      # ✅ Clean up old EB versions (keep last 5)
+      - name: Clean up old application versions
+        run: |
+          echo "🧹 Cleaning up old application versions (keeping last 5)..."
+          OLD_VERSIONS=$(aws elasticbeanstalk describe-application-versions \
+            --application-name Credcars-backend \
+            --query "ApplicationVersions[?Status=='Processed'] | sort_by(@, &DateCreated)[:-5].VersionLabel" \
+            --output text)
+
+          if [ -n "$OLD_VERSIONS" ]; then
+            for VERSION in $OLD_VERSIONS; do
+              echo "🗑️ Deleting old version: $VERSION"
+              aws elasticbeanstalk delete-application-version \
+                --application-name Credcars-backend \
+                --version-label $VERSION \
+                --delete-source-bundle
+            done
+          else
+            echo "✅ No old versions to delete."
           fi

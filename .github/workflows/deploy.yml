@@ -65,10 +65,16 @@ jobs:
         run: |
           if [[ "${GITHUB_REF##*/}" == "main" ]]; then
             ENV="production"
+            EB_ENV="Credcars-backend-production-env"
+            EB_GREEN_ENV="Credcars-backend-production-green-env"
           else
             ENV="staging"
+            EB_ENV="Credcars-backend-staging-env"
+
           fi
           echo "ENV=$ENV" >> $GITHUB_ENV
+          echo "EB_ENV=$EB_ENV" >> $GITHUB_ENV
+          echo "EB_GREEN_ENV=$EB_GREEN_ENV" >> $GITHUB_ENV
           echo "TERRAFORM_DIR=infra/terraform/$ENV" >> $GITHUB_ENV
 
       # Move app.zip to the correct environment folder
@@ -115,10 +121,46 @@ jobs:
             --version-label $VERSION_LABEL \
             --source-bundle S3Bucket="elasticbeanstalk-${{ vars.AWS_REGION }}-${{ vars.AWS_ACCOUNT_ID }}",S3Key="app-${ENV}.zip"
 
+          # Deploy to Environment
+          if [ "$ENV" = "production" ]; then
+            echo "Deploying to GREEN environment first..."
+            aws elasticbeanstalk update-environment \
+              --application-name Credcars-backend \
+              --environment-name $EB_GREEN_ENV \
+              --version-label $VERSION_LABEL
+
+            echo "⏳ Waiting for GREEN environment health to turn Green..."
+            for i in {1..60}; do
+              HEALTH=$(aws elasticbeanstalk describe-environments \
+                --environment-names $EB_GREEN_ENV \
+                --query "Environments[0].Health" \
+                --output text)
+              echo "Current Health: $HEALTH"
+              if [ "$HEALTH" == "Green" ]; then
+                echo "✅ GREEN environment is healthy!"
+                break
+              fi
+              sleep 20
+            done
+
+            echo "🔁 Swapping BLUE and GREEN environments..."
+            aws elasticbeanstalk swap-environment-cnames \
+              --source-environment-name $EB_GREEN_ENV \
+              --destination-environment-name $EB_ENV
+
+            echo "✅ Blue/Green swap complete."
+          else
+            echo "Deploying to STAGING environment..."
+            aws elasticbeanstalk update-environment \
+              --application-name Credcars-backend \
+              --environment-name $EB_ENV \
+              --version-label $VERSION_LABEL
+          fi
+
           # Update EB environment
-          aws elasticbeanstalk update-environment \
-            --application-name Credcars-backend \
-            --environment-name Credcars-backend-$ENV-env \
-            --version-label $VERSION_LABEL
+          #aws elasticbeanstalk update-environment \
+          #  --application-name Credcars-backend \
+          #  --environment-name Credcars-backend-$ENV-env \
+          #  --version-label $VERSION_LABEL
 
 

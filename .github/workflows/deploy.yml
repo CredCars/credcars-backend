@@ -154,10 +154,31 @@ jobs:
                 --source-environment-name $EB_ENV \
                 --destination-environment-name $EB_GREEN_ENV
               echo "✅ Swap complete. GREEN is now live."
+
+              # ✅ Post-deployment health verification
+              echo "🔍 Monitoring GREEN environment post-deployment..."
+              for i in {1..30}; do
+                HEALTH=$(aws elasticbeanstalk describe-environments \
+                  --environment-names $EB_GREEN_ENV \
+                  --query "Environments[0].Health" --output text)
+                echo "Post-swap Health: $HEALTH"
+                if [ "$HEALTH" == "Red" ] || [ "$HEALTH" == "Degraded" ]; then
+                  echo "❌ Post-deploy health check failed. Rolling back..."
+                  aws elasticbeanstalk swap-environment-cnames \
+                    --source-environment-name $EB_GREEN_ENV \
+                    --destination-environment-name $EB_ENV
+                  echo "🔄 Rolled back to BLUE environment."
+                  exit 1
+                fi
+                sleep 20
+              done
+              echo "✅ Deployment stable after monitoring window."
+
             else
               echo "❌ Deployment failed. GREEN environment not healthy. No swap performed."
               exit 1
             fi
+
           else
             echo "🧪 Deploying to STAGING environment..."
             aws elasticbeanstalk update-environment \

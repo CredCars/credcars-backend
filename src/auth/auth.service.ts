@@ -11,6 +11,7 @@ import { LoginUserDTO } from '@auth/dto';
 import { CreateUserDTO } from '@user/dto';
 import { UserDocument } from '@user/schema/user.schema';
 import configuration from '@config/configuration';
+import { AuditService, AuditAction } from '@common/services/audit.service';
 
 @Injectable()
 export class AuthService {
@@ -18,15 +19,53 @@ export class AuthService {
     private userService: UserService,
     private jwtService: JwtService,
     private readonly logger: Logger,
+    private readonly auditService: AuditService,
   ) {}
 
-  async register(body: CreateUserDTO): Promise<UserDocument> {
-    console.log('trying to register user with email:', body.email);
-    return this.userService.create(body.email, body.password);
+  async register(
+    body: CreateUserDTO,
+    ip?: string,
+    userAgent?: string,
+    requestId?: string,
+  ): Promise<UserDocument> {
+    this.logger.log(`Registering user with email: ${body.email}`);
+    try {
+      const user = await this.userService.create(body.email, body.password);
+      // Audit successful registration
+      await this.auditService.logSecurityEvent(
+        AuditAction.REGISTER,
+        {
+          userId: user.id.toString(),
+          email: user.email,
+          ip,
+          userAgent,
+          requestId,
+        },
+        true,
+      );
+      return user;
+    } catch (error) {
+      // Audit failed registration
+      await this.auditService.logSecurityEvent(
+        AuditAction.REGISTER,
+        {
+          email: body.email,
+          ip,
+          userAgent,
+          requestId,
+          details: { error: error.message },
+        },
+        false,
+      );
+      throw error;
+    }
   }
 
   async login(
     body: LoginUserDTO,
+    ip?: string,
+    userAgent?: string,
+    requestId?: string,
   ): Promise<
     { tokens: { accessToken: string; refreshToken: string } } | Error
   > {
@@ -36,6 +75,18 @@ export class AuthService {
 
     if (!user || !(await bcrypt.compare(body.password, user.password))) {
       this.logger.error(`Invalid credentials for user: ${body.email}`);
+      // Audit failed login attempt
+      await this.auditService.logSecurityEvent(
+        AuditAction.LOGIN_FAILED,
+        {
+          email: body.email,
+          ip,
+          userAgent,
+          requestId,
+          details: { reason: 'Invalid credentials' },
+        },
+        false,
+      );
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -45,18 +96,53 @@ export class AuthService {
 
     await this.updateRefreshToken(user.id.toString(), tokens.refreshToken);
 
+    // Audit successful login
+    await this.auditService.logSecurityEvent(
+      AuditAction.LOGIN,
+      {
+        userId: user.id.toString(),
+        email: user.email,
+        ip,
+        userAgent,
+        requestId,
+      },
+      true,
+    );
+
     return {
       tokens,
     };
   }
 
-  async logout(userId: string) {
+  async logout(
+    userId: string,
+    ip?: string,
+    userAgent?: string,
+    requestId?: string,
+  ) {
     this.logger.log(`Logging out user: ${userId}`);
     await this.userService.update(userId, { refreshToken: null });
     this.logger.log(`User logged out successfully: ${userId}`);
+    // Audit logout
+    await this.auditService.logSecurityEvent(
+      AuditAction.LOGOUT,
+      {
+        userId,
+        ip,
+        userAgent,
+        requestId,
+      },
+      true,
+    );
   }
 
-  async refreshTokens(userId: string, refreshToken: string) {
+  async refreshTokens(
+    userId: string,
+    refreshToken: string,
+    ip?: string,
+    userAgent?: string,
+    requestId?: string,
+  ) {
     this.logger.log(`Refreshing tokens for user: ${userId}`);
     const user = await this.userService.findById(userId);
     if (!user || !user.refreshToken) {
@@ -83,6 +169,18 @@ export class AuthService {
     await this.updateRefreshToken(user.id.toString(), tokens.refreshToken);
 
     this.logger.log(`Tokens refreshed successfully for user: ${userId}`);
+    // Audit token refresh
+    await this.auditService.logSecurityEvent(
+      AuditAction.TOKEN_REFRESH,
+      {
+        userId,
+        email: user.email,
+        ip,
+        userAgent,
+        requestId,
+      },
+      true,
+    );
     return { tokens };
   }
 

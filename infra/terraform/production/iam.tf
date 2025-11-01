@@ -35,6 +35,28 @@ resource "aws_iam_role_policy_attachment" "eb_ec2_workertier" {
   policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkWorkerTier"
 }
 
+# CloudWatch Logs permissions for EC2 instances
+resource "aws_iam_role_policy" "eb_ec2_cloudwatch_logs" {
+  name = "eb-ec2-cloudwatch-logs"
+  role = aws_iam_role.eb_ec2_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogStreams"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      }
+    ]
+  })
+}
+
 # Create the instance profile for EC2 instances
 resource "aws_iam_instance_profile" "eb_ec2_instance_profile" {
   name = aws_iam_role.eb_ec2_role.name

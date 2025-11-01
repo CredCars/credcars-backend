@@ -1,0 +1,8 @@
+# Test files
+test-security.js
+test-all-security.sh
+
+# Build output
+dist/
+node_modules/
+

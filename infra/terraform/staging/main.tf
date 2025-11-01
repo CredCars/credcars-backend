@@ -11,8 +11,7 @@ terraform {
     bucket = "credcars-terraform-state"
     key    = "backend/staging/terraform.tfstate"
     region = "us-east-1"
-    dynamodb_table = "terraform-locks"
-    encrypt        = true
+    use_lockfile = true
   }
 }
 

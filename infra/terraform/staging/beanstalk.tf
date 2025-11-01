@@ -17,14 +17,18 @@ resource "aws_s3_bucket" "beanstalk_app_bucket" {
   bucket = "credcars-beanstalk-${var.env}-${random_id.bucket_suffix.hex}"
 }
 
+locals {
+  app_zip_path = try(
+    abspath("${path.module}/../../../app.zip"),
+    abspath("${path.module}/app.zip")
+  )
+}
+
 resource "aws_s3_object" "app_version" {
   bucket = aws_s3_bucket.beanstalk_app_bucket.id
   key    = "app-${var.env}.zip"
-  source = "${path.module}/${var.app_zip_path}"
-  etag   = filemd5("${path.module}/${var.app_zip_path}")
-
-
-
+  source = local.app_zip_path
+  etag   = filemd5(local.app_zip_path)
 }
 
 resource "aws_elastic_beanstalk_application_version" "version" {

@@ -10,6 +10,22 @@ import { Logger } from '@nestjs/common';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
+// ✅ Load local .env.test if not in CI (GitHub Actions will already have process.env)
+if (!process.env.GITHUB_ACTIONS) {
+  dotenv.config({ path: '.env.test' });
+}
+
+// ✅ Ensure critical env vars exist even if not defined
+const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET'];
+for (const key of requiredEnvVars) {
+  if (!process.env[key]) {
+    console.warn(`[WARN] Missing ${key}, using fallback default for tests.`);
+    if (key === 'MONGODB_URI')
+      process.env[key] = 'mongodb://localhost:27017/test_db';
+    if (key === 'JWT_SECRET') process.env[key] = 'dummy_secret';
+  }
+}
+
 type MockModel<T = any> = Partial<Record<keyof Model<T>, jest.Mock>> & {
   select: jest.Mock;
 };

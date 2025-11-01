@@ -9,7 +9,13 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
+    env:
+      MONGODB_URI: ${{ vars.MONGODB_URI }}
+      JWT_SECRET: ${{ vars.JWT_SECRET }}
+      JWT_REFRESH_SECRET: ${{ vars.JWT_REFRESH_SECRET }}
+      JWT_EXPIRES_IN: ${{ vars.JWT_EXPIRES_IN }}
+      JWT_REFRESH_EXPIRES_IN: ${{ vars.JWT_REFRESH_EXPIRES_IN }}
+      NODE_ENV: test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -108,7 +114,7 @@ jobs:
         run: |
           cd $TERRAFORM_DIR
           terraform apply -auto-approve -target=aws_iam_user.github_deployer -target=aws_iam_user_policy.github_deployer_policy -var-file="$ENV.tfvars"
-      
+
       - name: Deploy to Elastic Beanstalk
         run: |
           VERSION_LABEL="v-${GITHUB_RUN_NUMBER}-$ENV"
@@ -185,7 +191,7 @@ jobs:
               --environment-name $EB_ENV \
               --version-label $VERSION_LABEL
           fi
-      
+
       # ✅ Clean up old EB versions (keep last 5)
       - name: Clean up old application versions
         run: |

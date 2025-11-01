@@ -16,6 +16,8 @@ jobs:
       JWT_EXPIRES_IN: ${{ vars.JWT_EXPIRES_IN }}
       JWT_REFRESH_EXPIRES_IN: ${{ vars.JWT_REFRESH_EXPIRES_IN }}
       NODE_ENV: test
+      ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
+      FRONTEND_URL: ${{ vars.FRONTEND_URL }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -8,10 +8,26 @@ import * as bcrypt from 'bcryptjs';
 import { CreateUserDTO } from '../user/dto';
 import { LoginUserDTO } from './dto';
 import { UserDocument } from '../user/schema/user.schema';
-import { AuditService } from '../common/services/audit.service'; // ✅ Added import
+import { AuditService } from '../common/services/audit.service';
 import configuration from '@config/configuration';
+import * as dotenv from 'dotenv';
 
 jest.mock('bcryptjs');
+
+if (!process.env.GITHUB_ACTIONS) {
+  dotenv.config({ path: '.env.test' });
+}
+
+const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
+for (const key of requiredEnvVars) {
+  if (!process.env[key]) {
+    console.warn(`[WARN] Missing ${key}, using fallback default for tests.`);
+    if (key === 'MONGODB_URI')
+      process.env[key] = 'mongodb://localhost:27017/test_db';
+    if (key === 'JWT_SECRET') process.env[key] = 'dummy_secret';
+    if (key === 'JWT_REFRESH_SECRET') process.env[key] = 'dummy_refresh_secret';
+  }
+}
 
 describe('AuthService', () => {
   let service: AuthService;

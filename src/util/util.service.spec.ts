@@ -16,13 +16,14 @@ if (!process.env.GITHUB_ACTIONS) {
 }
 
 // ✅ Ensure critical env vars exist even if not defined
-const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET'];
+const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
 for (const key of requiredEnvVars) {
   if (!process.env[key]) {
     console.warn(`[WARN] Missing ${key}, using fallback default for tests.`);
     if (key === 'MONGODB_URI')
       process.env[key] = 'mongodb://localhost:27017/test_db';
     if (key === 'JWT_SECRET') process.env[key] = 'dummy_secret';
+    if (key === 'JWT_REFRESH_SECRET') process.env[key] = 'dummy_refresh_secret';
   }
 }
 

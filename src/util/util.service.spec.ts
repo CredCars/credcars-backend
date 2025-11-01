@@ -7,6 +7,8 @@ import axios from 'axios';
 import * as moment from 'moment';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
+import * as dotenv from 'dotenv';
+dotenv.config();
 
 type MockModel<T = any> = Partial<Record<keyof Model<T>, jest.Mock>> & {
   select: jest.Mock;

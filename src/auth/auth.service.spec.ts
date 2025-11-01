@@ -8,6 +8,7 @@ import * as bcrypt from 'bcryptjs';
 import { CreateUserDTO } from '../user/dto';
 import { LoginUserDTO } from './dto';
 import { UserDocument } from '../user/schema/user.schema';
+import { AuditService } from '../common/services/audit.service'; // ✅ Added import
 import configuration from '@config/configuration';
 
 jest.mock('bcryptjs');
@@ -16,6 +17,7 @@ describe('AuthService', () => {
   let service: AuthService;
   let userService: jest.Mocked<UserService>;
   let jwtService: jest.Mocked<JwtService>;
+  let auditService: jest.Mocked<AuditService>;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -37,6 +39,13 @@ describe('AuthService', () => {
           },
         },
         {
+          provide: AuditService, // ✅ Added AuditService mock
+          useValue: {
+            logSecurityEvent: jest.fn(),
+            log: jest.fn(),
+          },
+        },
+        {
           provide: Logger,
           useValue: {
             log: jest.fn(),
@@ -51,6 +60,7 @@ describe('AuthService', () => {
     service = module.get<AuthService>(AuthService);
     userService = module.get(UserService);
     jwtService = module.get(JwtService);
+    auditService = module.get(AuditService);
   });
 
   afterEach(() => {
@@ -64,6 +74,7 @@ describe('AuthService', () => {
         password: 'password123',
       };
       const mockUser: Partial<UserDocument> = {
+        id: '12345',
         email: createUserDto.email,
         password: 'hashedPassword',
       };
@@ -130,6 +141,7 @@ describe('AuthService', () => {
         mockUser.id,
         mockTokens.refreshToken,
       );
+      expect(auditService.logSecurityEvent).toHaveBeenCalled(); // ✅ Audit logging assertion
       expect(result).toEqual({ tokens: mockTokens });
     });
 

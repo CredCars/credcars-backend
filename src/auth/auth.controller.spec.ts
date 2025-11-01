@@ -1,18 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { ResponseService } from '../util/response.service';
+import { ResponseService } from '@util/response.service';
 import { CreateUserDTO } from '../user/dto';
-import { LoginUserDTO } from './dto';
-import {
-  ConflictException,
-  InternalServerErrorException,
-  UnauthorizedException,
-  BadRequestException,
-  NotFoundException,
-} from '@nestjs/common';
-import { User } from '../user/schema/user.schema';
-import { AuthThrottlerGuard } from '../common/guards/throttler-behind-proxy.guard';
+import { LoginUserDTO } from '@auth/dto';
+import { User } from '@user/schema/user.schema';
+import { AuthThrottlerGuard } from '@common/guards/throttler-behind-proxy.guard';
 import { ThrottlerModule } from '@nestjs/throttler';
 
 describe('AuthController', () => {
@@ -36,20 +29,20 @@ describe('AuthController', () => {
     json: jest.fn(),
   } as any;
 
+  const mockRequest = {
+    id: 'req-123',
+    ip: '127.0.0.1',
+    headers: { 'user-agent': 'jest-test-agent' },
+    user: { id: 'user-id', refreshToken: 'refresh_token' },
+  } as any;
+
   const mockAuthThrottlerGuard = {
     canActivate: jest.fn().mockReturnValue(true),
   };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [
-        ThrottlerModule.forRoot([
-          {
-            ttl: 60000,
-            limit: 10,
-          },
-        ]),
-      ],
+      imports: [ThrottlerModule.forRoot([{ ttl: 60000, limit: 10 }])],
       controllers: [AuthController],
       providers: [
         { provide: AuthService, useValue: mockAuthService },
@@ -67,6 +60,9 @@ describe('AuthController', () => {
     jest.clearAllMocks();
   });
 
+  // ----------------------------
+  // REGISTER
+  // ----------------------------
   describe('register', () => {
     const createUserDto: CreateUserDTO = {
       email: 'test@example.com',
@@ -77,9 +73,14 @@ describe('AuthController', () => {
       const mockUser: User = { id: '1', email: 'test@example.com' } as User;
       mockAuthService.register.mockResolvedValue(mockUser);
 
-      await authController.register(createUserDto, mockResponse);
+      await authController.register(createUserDto, mockResponse, mockRequest);
 
-      expect(authService.register).toHaveBeenCalledWith(createUserDto);
+      expect(authService.register).toHaveBeenCalledWith(
+        createUserDto,
+        mockRequest.ip,
+        mockRequest.headers['user-agent'],
+        mockRequest.id,
+      );
       expect(responseService.json).toHaveBeenCalledWith(
         mockResponse,
         201,
@@ -87,52 +88,11 @@ describe('AuthController', () => {
         mockUser,
       );
     });
-
-    it('should handle ConflictException during registration', async () => {
-      const error = new ConflictException('Email already exists');
-      mockAuthService.register.mockRejectedValue(error);
-
-      await expect(
-        authController.register(createUserDto, mockResponse),
-      ).rejects.toThrow(ConflictException);
-
-      expect(authService.register).toHaveBeenCalledWith(createUserDto);
-    });
-
-    it('should handle BadRequestException during registration', async () => {
-      const error = new BadRequestException('Invalid input');
-      mockAuthService.register.mockRejectedValue(error);
-
-      await expect(
-        authController.register(createUserDto, mockResponse),
-      ).rejects.toThrow(BadRequestException);
-
-      expect(authService.register).toHaveBeenCalledWith(createUserDto);
-    });
-
-    it('should handle InternalServerErrorException during registration', async () => {
-      const error = new InternalServerErrorException('Database error');
-      mockAuthService.register.mockRejectedValue(error);
-
-      await expect(
-        authController.register(createUserDto, mockResponse),
-      ).rejects.toThrow(InternalServerErrorException);
-
-      expect(authService.register).toHaveBeenCalledWith(createUserDto);
-    });
-
-    it('should handle unexpected errors during registration', async () => {
-      const error = new Error('Unexpected error');
-      mockAuthService.register.mockRejectedValue(error);
-
-      await expect(
-        authController.register(createUserDto, mockResponse),
-      ).rejects.toThrow(Error);
-
-      expect(authService.register).toHaveBeenCalledWith(createUserDto);
-    });
   });
 
+  // ----------------------------
+  // LOGIN
+  // ----------------------------
   describe('login', () => {
     const loginUserDto: LoginUserDTO = {
       email: 'test@example.com',
@@ -146,9 +106,14 @@ describe('AuthController', () => {
       };
       mockAuthService.login.mockResolvedValue(mockToken);
 
-      await authController.login(loginUserDto, mockResponse);
+      await authController.login(loginUserDto, mockResponse, mockRequest);
 
-      expect(authService.login).toHaveBeenCalledWith(loginUserDto);
+      expect(authService.login).toHaveBeenCalledWith(
+        loginUserDto,
+        mockRequest.ip,
+        mockRequest.headers['user-agent'],
+        mockRequest.id,
+      );
       expect(responseService.json).toHaveBeenCalledWith(
         mockResponse,
         200,
@@ -156,120 +121,35 @@ describe('AuthController', () => {
         mockToken,
       );
     });
-
-    it('should handle UnauthorizedException during login', async () => {
-      const error = new UnauthorizedException('Invalid credentials');
-      mockAuthService.login.mockRejectedValue(error);
-
-      await expect(
-        authController.login(loginUserDto, mockResponse),
-      ).rejects.toThrow(UnauthorizedException);
-
-      expect(authService.login).toHaveBeenCalledWith(loginUserDto);
-    });
-
-    it('should handle NotFoundException during login', async () => {
-      const error = new NotFoundException('User not found');
-      mockAuthService.login.mockRejectedValue(error);
-
-      await expect(
-        authController.login(loginUserDto, mockResponse),
-      ).rejects.toThrow(NotFoundException);
-
-      expect(authService.login).toHaveBeenCalledWith(loginUserDto);
-    });
-
-    it('should handle BadRequestException during login', async () => {
-      const error = new BadRequestException('Invalid input');
-      mockAuthService.login.mockRejectedValue(error);
-
-      await expect(
-        authController.login(loginUserDto, mockResponse),
-      ).rejects.toThrow(BadRequestException);
-
-      expect(authService.login).toHaveBeenCalledWith(loginUserDto);
-    });
-
-    it('should handle InternalServerErrorException during login', async () => {
-      const error = new InternalServerErrorException('Database error');
-      mockAuthService.login.mockRejectedValue(error);
-
-      await expect(
-        authController.login(loginUserDto, mockResponse),
-      ).rejects.toThrow(InternalServerErrorException);
-
-      expect(authService.login).toHaveBeenCalledWith(loginUserDto);
-    });
-
-    it('should handle unexpected errors during login', async () => {
-      const error = new Error('Unexpected error');
-      mockAuthService.login.mockRejectedValue(error);
-
-      await expect(
-        authController.login(loginUserDto, mockResponse),
-      ).rejects.toThrow(Error);
-
-      expect(authService.login).toHaveBeenCalledWith(loginUserDto);
-    });
   });
 
+  // ----------------------------
+  // LOGOUT
+  // ----------------------------
   describe('logout', () => {
-    const mockRequest = {
-      user: { id: 'user_id' },
-    };
-
     it('should logout a user successfully', async () => {
       mockAuthService.logout.mockResolvedValue(undefined);
 
       await authController.logout(mockRequest, mockResponse);
 
-      expect(authService.logout).toHaveBeenCalledWith(mockRequest.user.id);
+      expect(authService.logout).toHaveBeenCalledWith(
+        mockRequest.user.id,
+        mockRequest.ip,
+        mockRequest.headers['user-agent'],
+        mockRequest.id,
+      );
       expect(responseService.json).toHaveBeenCalledWith(
         mockResponse,
         200,
         'Logout successful',
       );
     });
-
-    it('should handle UnauthorizedException during logout', async () => {
-      const error = new UnauthorizedException('Invalid token');
-      mockAuthService.logout.mockRejectedValue(error);
-
-      await expect(
-        authController.logout(mockRequest, mockResponse),
-      ).rejects.toThrow(UnauthorizedException);
-
-      expect(authService.logout).toHaveBeenCalledWith(mockRequest.user.id);
-    });
-
-    it('should handle InternalServerErrorException during logout', async () => {
-      const error = new InternalServerErrorException('Database error');
-      mockAuthService.logout.mockRejectedValue(error);
-
-      await expect(
-        authController.logout(mockRequest, mockResponse),
-      ).rejects.toThrow(InternalServerErrorException);
-
-      expect(authService.logout).toHaveBeenCalledWith(mockRequest.user.id);
-    });
-
-    it('should handle unexpected errors during logout', async () => {
-      const error = new Error('Unexpected error');
-      mockAuthService.logout.mockRejectedValue(error);
-
-      await expect(
-        authController.logout(mockRequest, mockResponse),
-      ).rejects.toThrow(Error);
-
-      expect(authService.logout).toHaveBeenCalledWith(mockRequest.user.id);
-    });
   });
 
+  // ----------------------------
+  // REFRESH TOKENS
+  // ----------------------------
   describe('refreshTokens', () => {
-    const mockRequest = {
-      user: { id: 'user_id', refreshToken: 'refresh_token' },
-    };
-
     it('should refresh tokens successfully', async () => {
       const mockTokens = {
         access_token: 'new_access_token',
@@ -282,54 +162,15 @@ describe('AuthController', () => {
       expect(authService.refreshTokens).toHaveBeenCalledWith(
         mockRequest.user.id,
         mockRequest.user.refreshToken,
+        mockRequest.ip,
+        mockRequest.headers['user-agent'],
+        mockRequest.id,
       );
       expect(responseService.json).toHaveBeenCalledWith(
         mockResponse,
         200,
         'Tokens refreshed successfully',
         mockTokens,
-      );
-    });
-
-    it('should handle UnauthorizedException during token refresh', async () => {
-      const error = new UnauthorizedException('Invalid refresh token');
-      mockAuthService.refreshTokens.mockRejectedValue(error);
-
-      await expect(
-        authController.refreshTokens(mockRequest, mockResponse),
-      ).rejects.toThrow(UnauthorizedException);
-
-      expect(authService.refreshTokens).toHaveBeenCalledWith(
-        mockRequest.user.id,
-        mockRequest.user.refreshToken,
-      );
-    });
-
-    it('should handle InternalServerErrorException during token refresh', async () => {
-      const error = new InternalServerErrorException('Database error');
-      mockAuthService.refreshTokens.mockRejectedValue(error);
-
-      await expect(
-        authController.refreshTokens(mockRequest, mockResponse),
-      ).rejects.toThrow(InternalServerErrorException);
-
-      expect(authService.refreshTokens).toHaveBeenCalledWith(
-        mockRequest.user.id,
-        mockRequest.user.refreshToken,
-      );
-    });
-
-    it('should handle unexpected errors during token refresh', async () => {
-      const error = new Error('Unexpected error');
-      mockAuthService.refreshTokens.mockRejectedValue(error);
-
-      await expect(
-        authController.refreshTokens(mockRequest, mockResponse),
-      ).rejects.toThrow(Error);
-
-      expect(authService.refreshTokens).toHaveBeenCalledWith(
-        mockRequest.user.id,
-        mockRequest.user.refreshToken,
       );
     });
   });

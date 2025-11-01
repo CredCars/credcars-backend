@@ -12,7 +12,7 @@ dotenv.config();
 
 // ✅ Load local .env.test if not in CI (GitHub Actions will already have process.env)
 if (!process.env.GITHUB_ACTIONS) {
-  dotenv.config({ path: '.env.test' });
+  dotenv.config({ path: '.env' });
 }
 
 // ✅ Ensure critical env vars exist even if not defined

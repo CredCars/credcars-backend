@@ -15,7 +15,7 @@ import * as dotenv from 'dotenv';
 jest.mock('bcryptjs');
 
 if (!process.env.GITHUB_ACTIONS) {
-  dotenv.config({ path: '.env.test' });
+  dotenv.config({ path: '.env' });
 }
 
 const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];

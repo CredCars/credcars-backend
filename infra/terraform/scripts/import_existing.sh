@@ -171,19 +171,24 @@ if [ "$EXISTING_ENV" == "$ENV_NAME" ]; then
 else
   echo "🆕 Environment '$ENV_NAME' not found. Creating it..."
   aws elasticbeanstalk create-environment \
-    --application-name "$APP_NAME" \
-    --environment-name "$ENV_NAME" \
-    --solution-stack-name "$SOLUTION_STACK" \
-    --version-label "$VERSION_LABEL" \
-    --cname-prefix "$CNAME_PREFIX" \
-    --region "$AWS_REGION" \
-    --option-settings Namespace=aws:elasticbeanstalk:environment,OptionName=EnvironmentType,Value=SingleInstance || true
+  --application-name "$APP_NAME" \
+  --environment-name "$ENV_NAME" \
+  --solution-stack-name "$SOLUTION_STACK" \
+  --version-label "$VERSION_LABEL" \
+  --cname-prefix "$CNAME_PREFIX" \
+  --region "$AWS_REGION" \
+  --option-settings \
+      Namespace=aws:elasticbeanstalk:environment,OptionName=EnvironmentType,Value=SingleInstance \
+      Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role \
+      Namespace=aws:elasticbeanstalk:environment,OptionName=ServiceRole,Value=aws-elasticbeanstalk-service-role || true
 
-  echo "⏳ Waiting for environment to become available..."
-  aws elasticbeanstalk wait environment-exists \
+
+  echo "⏳ Waiting for environment to be ready (this may take a few minutes)..."
+  aws elasticbeanstalk wait environment-ready \
     --application-name "$APP_NAME" \
     --environment-names "$ENV_NAME" \
     --region "$AWS_REGION"
+
 
   echo "✅ Environment created successfully. Importing into Terraform..."
   terraform import aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME"

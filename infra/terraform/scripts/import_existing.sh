@@ -110,8 +110,16 @@ echo "🔍 Checking for Elastic Beanstalk environment: $ENV_NAME ..."
 
 SOLUTION_STACK=$(aws elasticbeanstalk list-available-solution-stacks \
   --region "$AWS_REGION" \
-  --query "SolutionStacks[?contains(@, 'Node.js 22') && contains(@, 'Amazon Linux 2023')]" \
-  --output text | sort | tail -n 1)
+  --query "SolutionStacks[]" \
+  --output text | tr '\t' '\n' | grep "64bit Amazon Linux 2023" | grep "Node.js 22" | tail -n 1 | xargs)
+
+echo "🧩 Using solution stack: $SOLUTION_STACK"
+
+if [ -z "$SOLUTION_STACK" ]; then
+  echo "❌ Could not find a Node.js 22 (Amazon Linux 2023) platform. Aborting."
+  exit 1
+fi
+
 
 if [ -z "$SOLUTION_STACK" ]; then
   echo "❌ Could not find a Node.js 22 (Amazon Linux 2023) platform. Aborting."

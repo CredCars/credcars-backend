@@ -70,7 +70,7 @@ resource "aws_elastic_beanstalk_environment" "env" {
     value     = "true"
   }
 
-  # === IAM & Instance Settings ===
+  # === IAM & Instance Settings === 
   setting {
     namespace = "aws:autoscaling:launchconfiguration"
     name      = "IamInstanceProfile"

@@ -18,18 +18,19 @@ jobs:
       NODE_ENV: test
       ALLOWED_ORIGINS: ${{ vars.ALLOWED_ORIGINS }}
       FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+
       - name: Cache node modules
         uses: actions/cache@v3
         with:
-          # Key should change if package-lock.json changes
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          # Restores cache if key exists
           path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
 
       - run: npm ci
       - run: npm run lint
@@ -49,10 +50,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build-and-test
-    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' &&'staging' }}
+    environment: ${{ github.ref_name == 'main' && 'production' || 'staging' }}
 
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: eb-artifact
@@ -78,15 +80,14 @@ jobs:
           else
             ENV="staging"
             EB_ENV="Credcars-backend-staging-env"
-
           fi
+
           echo "ENV=$ENV" >> $GITHUB_ENV
           echo "EB_ENV=$EB_ENV" >> $GITHUB_ENV
           echo "EB_GREEN_ENV=$EB_GREEN_ENV" >> $GITHUB_ENV
           echo "TERRAFORM_DIR=infra/terraform/$ENV" >> $GITHUB_ENV
 
-      # Move app.zip to the correct environment folder
-      - name: Move app.zip to Terraform environment directory
+      - name: Prepare Terraform working directory
         run: |
           mkdir -p $TERRAFORM_DIR
           mv app.zip "$TERRAFORM_DIR/app-${ENV}.zip"
@@ -95,27 +96,32 @@ jobs:
         run: |
           cd $TERRAFORM_DIR
           cat > $ENV.tfvars <<EOF
-          database_url = "${MONGODB_URI}"
-          jwt_secret = "${JWT_SECRET}"
-          jwt_refresh_secret = "${JWT_REFRESH_SECRET}"
-          jwt_expires_in = "${JWT_EXPIRES_IN}"
-          jwt_refresh_expires_in = "${JWT_REFRESH_EXPIRES_IN}"
-          allowed_origins = "${ALLOWED_ORIGINS}"
-          frontend_url = "${FRONTEND_URL}"
-          env = "${NODE_ENV}"
+          database_url             = "${MONGODB_URI}"
+          jwt_secret               = "${JWT_SECRET}"
+          jwt_refresh_secret       = "${JWT_REFRESH_SECRET}"
+          jwt_expires_in           = "${JWT_EXPIRES_IN}"
+          jwt_refresh_expires_in   = "${JWT_REFRESH_EXPIRES_IN}"
+          allowed_origins          = "${ALLOWED_ORIGINS}"
+          frontend_url             = "${FRONTEND_URL}"
+          env                      = "${NODE_ENV}"
           EOF
           echo "✅ $ENV.tfvars created successfully"
 
       # ✅ Initialize and apply Terraform's configuration
-      - name: Terraform init
+      - name: Terraform Init
         run: |
           cd $TERRAFORM_DIR
           terraform init -reconfigure
 
-      - name: Terraform apply (staging/production)
+      - name: Import existing resources
         run: |
           cd $TERRAFORM_DIR
-          terraform apply -auto-approve -target=aws_iam_user.github_deployer -target=aws_iam_user_policy.github_deployer_policy -var-file="$ENV.tfvars"
+          bash ../../scripts/import_existing.sh $ENV
+
+      - name: Terraform Apply
+        run: |
+          cd $TERRAFORM_DIR
+          terraform apply -auto-approve -var-file="$ENV.tfvars"
 
       - name: Deploy to Elastic Beanstalk
         run: |
@@ -185,7 +191,6 @@ jobs:
               echo "❌ Deployment failed. GREEN environment not healthy. No swap performed."
               exit 1
             fi
-
           else
             echo "🧪 Deploying to STAGING environment..."
             aws elasticbeanstalk update-environment \

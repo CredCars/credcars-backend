@@ -93,8 +93,8 @@ jobs:
           mv app.zip "$TERRAFORM_DIR/app-${ENV}.zip"
 
       - name: Create $ENV.tfvars from environment variables
+        working-directory: $TERRAFORM_DIR
         run: |
-          cd $TERRAFORM_DIR
           cat > $ENV.tfvars <<EOF
           database_url             = "${MONGODB_URI}"
           jwt_secret               = "${JWT_SECRET}"
@@ -109,19 +109,16 @@ jobs:
 
       # ✅ Initialize and apply Terraform's configuration
       - name: Terraform Init
-        run: |
-          cd $TERRAFORM_DIR
-          terraform init -reconfigure
+        working-directory: $TERRAFORM_DIR
+        run: terraform init -reconfigure
 
       - name: Import existing resources
-        run: |
-          cd $TERRAFORM_DIR
-          bash ../../scripts/import_existing.sh $ENV
+        working-directory: $TERRAFORM_DIR
+        run: bash ../../scripts/import_existing.sh $ENV
 
       - name: Terraform Apply
-        run: |
-          cd $TERRAFORM_DIR
-          terraform apply -auto-approve -var-file="$ENV.tfvars"
+        working-directory: $TERRAFORM_DIR
+        run: terraform apply -auto-approve -var-file="$ENV.tfvars"
 
       - name: Deploy to Elastic Beanstalk
         run: |

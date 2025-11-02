@@ -114,7 +114,7 @@ jobs:
 
       - name: Import existing resources
         working-directory: $TERRAFORM_DIR
-        run: bash ../../scripts/import_existing.sh $ENV
+        run: bash scripts/import_existing.sh $ENV
 
       - name: Terraform Apply
         working-directory: $TERRAFORM_DIR

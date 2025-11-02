@@ -183,14 +183,24 @@ else
       Namespace=aws:elasticbeanstalk:environment,OptionName=ServiceRole,Value=aws-elasticbeanstalk-service-role || true
 
 
-  echo "⏳ Waiting for environment to be ready (this may take a few minutes)..."
-  aws elasticbeanstalk wait environment-ready \
+   echo "⏳ Waiting for environment to become available..."
+  aws elasticbeanstalk wait environment-exists \
     --application-name "$APP_NAME" \
     --environment-names "$ENV_NAME" \
-    --region "$AWS_REGION"
+    --region "$AWS_REGION" || {
+      echo "❌ Timed out waiting for environment to appear in Elastic Beanstalk."
+      exit 1
+    }
 
+  echo "⏳ Waiting for environment to be ready (this may take several minutes)..."
+  aws elasticbeanstalk wait environment-running \
+    --environment-name "$ENV_NAME" \
+    --region "$AWS_REGION" || {
+      echo "❌ Timed out waiting for environment to reach 'Ready' state."
+      exit 1
+    }
 
-  echo "✅ Environment created successfully. Importing into Terraform..."
+  echo "✅ Environment is now active and running. Importing into Terraform..."
   terraform import aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME"
 fi
 

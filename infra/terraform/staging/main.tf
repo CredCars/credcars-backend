@@ -11,7 +11,6 @@ terraform {
     bucket = "credcars-terraform-state"
     key    = "backend/staging/terraform.tfstate"
     region = "us-east-1"
-    use_lockfile = true
   }
 }
 

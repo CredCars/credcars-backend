@@ -22,12 +22,12 @@ if [ "$ENV" = "production" ]; then
   GITHUB_DEPLOYER_ID="github-deployer-production"
   ENV_NAME="${APP_NAME}-production-env"
   CNAME_PREFIX="credcars-prod"
-  VERSION_LABEL="v-production"
+  VERSION_LABEL="v1-production"
 else
   GITHUB_DEPLOYER_ID="github-deployer-staging"
   ENV_NAME="${APP_NAME}-staging-env"
   CNAME_PREFIX="credcars-staging"
-  VERSION_LABEL="v-staging"
+  VERSION_LABEL="v1-staging"
 fi
 
 import_if_missing() {
@@ -103,6 +103,38 @@ if ! aws iam get-user --user-name "$GITHUB_DEPLOYER_ID" >/dev/null 2>&1; then
   aws iam create-user --user-name "$GITHUB_DEPLOYER_ID"
 else
   echo "✅ IAM User exists: $GITHUB_DEPLOYER_ID"
+fi
+
+# === 4.5️⃣ Ensure Application Version Exists ===
+echo "🔍 Checking for Elastic Beanstalk application version: $VERSION_LABEL ..."
+
+EXISTING_VERSION=$(aws elasticbeanstalk describe-application-versions \
+  --application-name "$APP_NAME" \
+  --query "ApplicationVersions[?VersionLabel=='$VERSION_LABEL'].VersionLabel" \
+  --output text || true)
+
+if [ "$EXISTING_VERSION" == "$VERSION_LABEL" ]; then
+  echo "✅ Application version '$VERSION_LABEL' already exists."
+else
+  echo "🆕 Creating application version '$VERSION_LABEL'..."
+
+  # Upload a small dummy zip file if app bundle isn't present
+  ZIP_FILE="app-${ENV}.zip"
+  if [ ! -f "$ZIP_FILE" ]; then
+    echo "Creating dummy deployment package: $ZIP_FILE"
+    echo "console.log('Credcars backend ${ENV} environment');" > index.js
+    zip -r "$ZIP_FILE" index.js >/dev/null
+  fi
+
+  aws s3 cp "$ZIP_FILE" "s3://elasticbeanstalk-${AWS_REGION}-${AWS_ACCOUNT_ID}/${ZIP_FILE}"
+
+  aws elasticbeanstalk create-application-version \
+    --application-name "$APP_NAME" \
+    --version-label "$VERSION_LABEL" \
+    --source-bundle S3Bucket="elasticbeanstalk-${AWS_REGION}-${AWS_ACCOUNT_ID}",S3Key="${ZIP_FILE}" \
+    --region "$AWS_REGION"
+
+  echo "✅ Application version '$VERSION_LABEL' created."
 fi
 
 # === 5️⃣ Ensure Elastic Beanstalk Environment Exists ===

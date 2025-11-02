@@ -14,8 +14,16 @@ ENV=${1:-staging}
 AWS_REGION=${AWS_REGION:-us-east-1}
 AWS_ACCOUNT_ID=${AWS_ACCOUNT_ID:-211289421537}
 APP_NAME="Credcars-backend"
+TFVARS_FILE="${ENV}.tfvars"
+
+if [ ! -f "$TFVARS_FILE" ]; then
+  echo "❌ Missing Terraform variables file: $TFVARS_FILE"
+  echo "Please ensure $TFVARS_FILE is generated before running this script."
+  exit 1
+fi
 
 echo "🌍 Environment detected: $ENV"
+echo "📄 Using variables file: $TFVARS_FILE"
 
 # Determine GitHub deployer user and environment names
 if [ "$ENV" = "production" ]; then
@@ -37,7 +45,7 @@ import_if_missing() {
     echo "✅ Already in state: $resource"
   else
     echo "📦 Importing $resource → $id"
-    terraform import "$resource" "$id" || echo "⚠️ Warning: import failed for $resource"
+    terraform import -var-file="$TFVARS_FILE" "$resource" "$id" || echo "⚠️ Warning: import failed for $resource"
   fi
 }
 
@@ -117,8 +125,6 @@ if [ "$EXISTING_VERSION" == "$VERSION_LABEL" ]; then
   echo "✅ Application version '$VERSION_LABEL' already exists."
 else
   echo "🆕 Creating application version '$VERSION_LABEL'..."
-
-  # Upload a small dummy zip file if app bundle isn't present
   ZIP_FILE="app-${ENV}.zip"
   if [ ! -f "$ZIP_FILE" ]; then
     echo "Creating dummy deployment package: $ZIP_FILE"
@@ -127,13 +133,11 @@ else
   fi
 
   aws s3 cp "$ZIP_FILE" "s3://elasticbeanstalk-${AWS_REGION}-${AWS_ACCOUNT_ID}/${ZIP_FILE}"
-
   aws elasticbeanstalk create-application-version \
     --application-name "$APP_NAME" \
     --version-label "$VERSION_LABEL" \
     --source-bundle S3Bucket="elasticbeanstalk-${AWS_REGION}-${AWS_ACCOUNT_ID}",S3Key="${ZIP_FILE}" \
     --region "$AWS_REGION"
-
   echo "✅ Application version '$VERSION_LABEL' created."
 fi
 
@@ -152,12 +156,6 @@ if [ -z "$SOLUTION_STACK" ]; then
   exit 1
 fi
 
-
-if [ -z "$SOLUTION_STACK" ]; then
-  echo "❌ Could not find a Node.js 22 (Amazon Linux 2023) platform. Aborting."
-  exit 1
-fi
-
 EXISTING_ENV=$(aws elasticbeanstalk describe-environments \
   --application-name "$APP_NAME" \
   --environment-names "$ENV_NAME" \
@@ -167,23 +165,22 @@ EXISTING_ENV=$(aws elasticbeanstalk describe-environments \
 
 if [ "$EXISTING_ENV" == "$ENV_NAME" ]; then
   echo "✅ Environment '$ENV_NAME' already exists. Importing into Terraform..."
-  terraform import aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME" || echo "Already imported."
+  terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME" || echo "Already imported."
 else
   echo "🆕 Environment '$ENV_NAME' not found. Creating it..."
   aws elasticbeanstalk create-environment \
-  --application-name "$APP_NAME" \
-  --environment-name "$ENV_NAME" \
-  --solution-stack-name "$SOLUTION_STACK" \
-  --version-label "$VERSION_LABEL" \
-  --cname-prefix "$CNAME_PREFIX" \
-  --region "$AWS_REGION" \
-  --option-settings \
+    --application-name "$APP_NAME" \
+    --environment-name "$ENV_NAME" \
+    --solution-stack-name "$SOLUTION_STACK" \
+    --version-label "$VERSION_LABEL" \
+    --cname-prefix "$CNAME_PREFIX" \
+    --region "$AWS_REGION" \
+    --option-settings \
       Namespace=aws:elasticbeanstalk:environment,OptionName=EnvironmentType,Value=SingleInstance \
       Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role \
       Namespace=aws:elasticbeanstalk:environment,OptionName=ServiceRole,Value=aws-elasticbeanstalk-service-role || true
 
-
-   echo "⏳ Waiting for environment to become available..."
+  echo "⏳ Waiting for environment to become available..."
   aws elasticbeanstalk wait environment-exists \
     --application-name "$APP_NAME" \
     --environment-names "$ENV_NAME" \
@@ -201,7 +198,7 @@ else
     }
 
   echo "✅ Environment is now active and running. Importing into Terraform..."
-  terraform import aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME"
+  terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME"
 fi
 
 # === 6️⃣ Import All Other Resources ===

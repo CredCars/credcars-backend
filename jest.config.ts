@@ -2,25 +2,24 @@ import type { Config } from 'jest';
 
 const config: Config = {
   moduleFileExtensions: ['js', 'json', 'ts'],
-  rootDir: 'src',
-  testRegex: '.*\\.spec\\.ts$',
+  rootDir: '.',
+  testRegex: 'src/.*\\.spec\\.ts$',
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
-  collectCoverageFrom: ['**/*.(t|j)s'],
-  coverageDirectory: '../coverage',
+  collectCoverageFrom: ['src/**/*.(t|j)s'],
+  coverageDirectory: 'coverage',
+  setupFiles: ['<rootDir>/test/jest-setup.ts'], // run setup before any test imports
+  preset: 'ts-jest',
   testEnvironment: 'node',
   moduleNameMapper: {
-    '^@config/(.*)$': '<rootDir>/config/$1',
-    '^@util/(.*)$': '<rootDir>/util/$1',
-    '^@user/(.*)$': '<rootDir>/user/$1',
-    '^@auth/(.*)$': '<rootDir>/auth/$1',
-    '^@constants/(.*)$': '<rootDir>/constants/$1',
-    '^@common/(.*)$': '<rootDir>/common/$1',
-    '^@app/(.*)$': '<rootDir>/app/$1',
+    '^@config/(.*)$': '<rootDir>/src/config/$1',
+    '^@util/(.*)$': '<rootDir>/src/util/$1',
+    '^@user/(.*)$': '<rootDir>/src/user/$1',
+    '^@auth/(.*)$': '<rootDir>/src/auth/$1',
+    '^@constants/(.*)$': '<rootDir>/src/constants/$1',
+    '^@common/(.*)$': '<rootDir>/src/common/$1',
+    '^@app/(.*)$': '<rootDir>/src/app/$1',
   },
-
-  setupFiles: ['<rootDir>/../jest.setup.ts'],
 };
-
 export default config;

@@ -17,16 +17,59 @@ import { Logger } from '@nestjs/common';
 import { CsrfGuard } from './common/guards/csrf.guard';
 import { CommonModule } from './common/common.module';
 
-@Module({
-  imports: [
-    CommonModule, // Global module providing AuditService
-    ConfigModule.forRoot({
-      isGlobal: true,
-      load: [configuration],
+const imports = [
+  CommonModule,
+  ConfigModule.forRoot({
+    isGlobal: true,
+    load: [configuration],
+  }),
+  JwtModule.registerAsync({
+    imports: [ConfigModule],
+    useFactory: async () => ({
+      secret: configuration().jwt.secret,
+      signOptions: { expiresIn: configuration().jwt.expiresIn },
     }),
+  }),
+  ThrottlerModule.forRoot([
+    {
+      name: 'short',
+      ttl: 60000, // 1 minute
+      limit: 100, // 100 requests per minute (more lenient for general endpoints)
+    },
+    {
+      name: 'long',
+      ttl: 3600000, // 1 hour
+      limit: 1000, // 1000 requests per hour
+    },
+    {
+      name: 'strict', // For sensitive endpoints like auth
+      ttl: 60000,
+      limit: 5,
+    },
+  ]),
+  UserModule,
+  AuthModule,
+  WinstonModule.forRoot(
+    configuration().nodeEnv === 'production'
+      ? productionWinstonConfig()
+      : winstonConfig,
+  ),
+  UtilModule,
+];
+
+if (configuration().nodeEnv !== 'test') {
+  imports.push(
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async () => {
+        const env = configuration().nodeEnv;
+
+        if (env === 'test') {
+          return {
+            uri: '',
+          };
+        }
+
         const isProduction = configuration().nodeEnv === 'production';
         return {
           uri: configuration().database.uri,
@@ -49,39 +92,11 @@ import { CommonModule } from './common/common.module';
         };
       },
     }),
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async () => ({
-        secret: configuration().jwt.secret,
-        signOptions: { expiresIn: configuration().jwt.expiresIn },
-      }),
-    }),
-    ThrottlerModule.forRoot([
-      {
-        name: 'short',
-        ttl: 60000, // 1 minute
-        limit: 100, // 100 requests per minute (more lenient for general endpoints)
-      },
-      {
-        name: 'long',
-        ttl: 3600000, // 1 hour
-        limit: 1000, // 1000 requests per hour
-      },
-      {
-        name: 'strict', // For sensitive endpoints like auth
-        ttl: 60000,
-        limit: 5,
-      },
-    ]),
-    UserModule,
-    AuthModule,
-    WinstonModule.forRoot(
-      configuration().nodeEnv === 'production'
-        ? productionWinstonConfig()
-        : winstonConfig,
-    ),
-    UtilModule,
-  ],
+  );
+}
+
+@Module({
+  imports: imports,
   controllers: [AppController],
   providers: [
     AppService,

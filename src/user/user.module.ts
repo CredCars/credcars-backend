@@ -12,6 +12,6 @@ import { Logger } from '@nestjs/common';
   ],
   providers: [UserService, Logger],
   controllers: [UserController],
-  exports: [UserService, MongooseModule],
+  exports: [UserService],
 })
 export class UserModule {}

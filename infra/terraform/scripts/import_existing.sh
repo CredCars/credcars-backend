@@ -160,7 +160,7 @@ else
       Namespace=aws:elasticbeanstalk:environment,OptionName=EnvironmentType,Value=loadbalanced \
       Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role \
       Namespace=aws:elasticbeanstalk:environment,OptionName=ServiceRole,Value=aws-elasticbeanstalk-service-role
-  aws elasticbeanstalk wait environment-running --environment-name "$ENV_NAME" --region "$AWS_REGION"
+  aws elasticbeanstalk wait environment-exists --environment-name "$ENV_NAME" --region "$AWS_REGION"
 fi
 
 # Fetch ENV_ID dynamically

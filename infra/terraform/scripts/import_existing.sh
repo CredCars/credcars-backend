@@ -98,7 +98,9 @@ create_iam_role_if_missing "aws-elasticbeanstalk-ec2-role" "arn:aws:iam::aws:pol
 if ! aws iam get-instance-profile --instance-profile-name "aws-elasticbeanstalk-ec2-role" >/dev/null 2>&1; then
   echo "🆕 Creating IAM Instance Profile: aws-elasticbeanstalk-ec2-role"
   aws iam create-instance-profile --instance-profile-name "aws-elasticbeanstalk-ec2-role"
-  aws iam add-role-to-instance-profile --instance-profile-name "aws-elasticbeanstalk-ec2-role" --role-name "aws-elasticbeanstalk-ec2-role"
+  aws iam add-role-to-instance-profile \
+    --instance-profile-name "aws-elasticbeanstalk-ec2-role" \
+    --role-name "aws-elasticbeanstalk-ec2-role"
 else
   echo "✅ IAM Instance Profile exists: aws-elasticbeanstalk-ec2-role"
 fi
@@ -119,24 +121,42 @@ EXISTING_VERSION=$(aws elasticbeanstalk describe-application-versions \
   --query "ApplicationVersions[?VersionLabel=='$VERSION_LABEL'].VersionLabel" \
   --output text || true)
 
-if [ "$EXISTING_VERSION" != "$VERSION_LABEL" ]; then
+if [ "$EXISTING_VERSION" == "$VERSION_LABEL" ]; then
+  echo "✅ Application version '$VERSION_LABEL' already exists."
+else
   echo "🆕 Creating application version '$VERSION_LABEL'..."
   ZIP_FILE="app-${ENV}.zip"
-  [ ! -f "$ZIP_FILE" ] && echo "console.log('Credcars backend ${ENV} environment');" > index.js && zip -r "$ZIP_FILE" index.js >/dev/null
+  if [ ! -f "$ZIP_FILE" ]; then
+    echo "Creating dummy deployment package: $ZIP_FILE"
+    echo "console.log('Credcars backend ${ENV} environment');" > index.js
+    zip -r "$ZIP_FILE" index.js >/dev/null
+  fi
+
   aws s3 cp "$ZIP_FILE" "s3://elasticbeanstalk-${AWS_REGION}-${AWS_ACCOUNT_ID}/${ZIP_FILE}"
   aws elasticbeanstalk create-application-version \
     --application-name "$APP_NAME" \
     --version-label "$VERSION_LABEL" \
     --source-bundle S3Bucket="elasticbeanstalk-${AWS_REGION}-${AWS_ACCOUNT_ID}",S3Key="${ZIP_FILE}" \
     --region "$AWS_REGION"
+  echo "✅ Application version '$VERSION_LABEL' created."
 fi
 
-# === 5️⃣ Ensure Elastic Beanstalk Environment Exists & Import ===
+# === 5️⃣ Ensure Elastic Beanstalk Environment Exists ===
+echo "🔍 Checking for Elastic Beanstalk environment: $ENV_NAME ..."
+
 SOLUTION_STACK=$(aws elasticbeanstalk list-available-solution-stacks \
   --region "$AWS_REGION" \
   --query "SolutionStacks[]" \
   --output text | tr '\t' '\n' | grep "64bit Amazon Linux 2023" | grep "Node.js 22" | tail -n 1 | xargs)
 
+echo "🧩 Using solution stack: $SOLUTION_STACK"
+
+if [ -z "$SOLUTION_STACK" ]; then
+  echo "❌ Could not find a Node.js 22 (Amazon Linux 2023) platform. Aborting."
+  exit 1
+fi
+
+# --- Detect if environment exists in AWS ---
 EXISTING_ENV=$(aws elasticbeanstalk describe-environments \
   --application-name "$APP_NAME" \
   --environment-names "$ENV_NAME" \
@@ -146,7 +166,24 @@ EXISTING_ENV=$(aws elasticbeanstalk describe-environments \
 
 if [ "$EXISTING_ENV" == "$ENV_NAME" ]; then
   echo "✅ Environment '$ENV_NAME' already exists."
-  aws elasticbeanstalk wait environment-exists --application-name "$APP_NAME" --environment-names "$ENV_NAME" --region "$AWS_REGION" || true
+
+  echo "⏳ Waiting for environment '$ENV_NAME' to be visible to AWS API..."
+  aws elasticbeanstalk wait environment-exists \
+    --application-name "$APP_NAME" \
+    --environment-names "$ENV_NAME" \
+    --region "$AWS_REGION" || true
+
+  echo "🧩 Attempting to import existing environment into Terraform state..."
+  if terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME"; then
+    echo "✅ Successfully imported '$ENV_NAME' into Terraform."
+  else
+    echo "⚠️ Import failed. Retrying in 30s (AWS propagation delay)..."
+    sleep 30
+    terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME" || {
+      echo "❌ Second import attempt failed. Skipping environment creation (already exists in AWS)."
+    }
+  fi
+
 else
   echo "🆕 Environment '$ENV_NAME' not found. Creating it..."
   aws elasticbeanstalk create-environment \
@@ -159,26 +196,41 @@ else
     --option-settings \
       Namespace=aws:elasticbeanstalk:environment,OptionName=EnvironmentType,Value=loadbalanced \
       Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role \
-      Namespace=aws:elasticbeanstalk:environment,OptionName=ServiceRole,Value=aws-elasticbeanstalk-service-role
-  aws elasticbeanstalk wait environment-exists --environment-name "$ENV_NAME" --region "$AWS_REGION"
+      Namespace=aws:elasticbeanstalk:environment,OptionName=ServiceRole,Value=aws-elasticbeanstalk-service-role || true
+
+  echo "⏳ Waiting for environment creation to complete..."
+  aws elasticbeanstalk wait environment-exists \
+    --application-name "$APP_NAME" \
+    --environment-names "$ENV_NAME" \
+    --region "$AWS_REGION"
+
+    aws elasticbeanstalk wait environment-exists \ 
+    --environment-name "$ENV_NAME" \
+    --region "$AWS_REGION"
+
+  echo "✅ Environment is now active and running. Importing into Terraform..."
+  terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME"
 fi
 
-# Fetch ENV_ID dynamically
-ENV_ID=$(aws elasticbeanstalk describe-environments \
-  --application-name "$APP_NAME" \
-  --environment-names "$ENV_NAME" \
-  --region "$AWS_REGION" \
-  --query "Environments[0].EnvironmentId" \
-  --output text)
-
-# Import Elastic Beanstalk Environment into Terraform
-import_if_missing aws_elastic_beanstalk_environment.env "$ENV_ID"
-
-# === 6️⃣ Import Other Resources ===
-import_if_missing aws_elasticbeanstalk_application.app "$APP_NAME"
+# === 6️⃣ Import All Other Resources ===
+import_if_missing aws_elastic_beanstalk_application.app "$APP_NAME"
 import_if_missing aws_iam_role.eb_ec2_role aws-elasticbeanstalk-ec2-role
 import_if_missing aws_iam_role.eb_service_role aws-elasticbeanstalk-service-role
 import_if_missing aws_iam_user.github_deployer "$GITHUB_DEPLOYER_ID"
 import_if_missing aws_iam_instance_profile.eb_ec2_instance_profile aws-elasticbeanstalk-ec2-role
+# === 🧭 Always Import Existing Elastic Beanstalk Environment into Terraform State ===
+echo "🔍 Ensuring Elastic Beanstalk environment '$ENV_NAME' is tracked in Terraform state..."
+
+if aws elasticbeanstalk describe-environments \
+  --application-name "$APP_NAME" \
+  --environment-names "$ENV_NAME" \
+  --region "$AWS_REGION" \
+  --query "Environments[?Status!='Terminated'].EnvironmentName" \
+  --output text | grep -q "$ENV_NAME"; then
+  terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME" || \
+    echo "⚠️ Warning: could not import environment '$ENV_NAME' (may already exist in state)"
+else
+  echo "❌ Environment '$ENV_NAME' not found — skipping Terraform import."
+fi
 
 echo "✅ Terraform import and environment setup completed successfully."

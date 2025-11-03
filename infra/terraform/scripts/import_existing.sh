@@ -207,5 +207,19 @@ import_if_missing aws_iam_role.eb_ec2_role aws-elasticbeanstalk-ec2-role
 import_if_missing aws_iam_role.eb_service_role aws-elasticbeanstalk-service-role
 import_if_missing aws_iam_user.github_deployer "$GITHUB_DEPLOYER_ID"
 import_if_missing aws_iam_instance_profile.eb_ec2_instance_profile aws-elasticbeanstalk-ec2-role
+# === 🧭 Always Import Existing Elastic Beanstalk Environment into Terraform State ===
+echo "🔍 Ensuring Elastic Beanstalk environment '$ENV_NAME' is tracked in Terraform state..."
+
+if aws elasticbeanstalk describe-environments \
+  --application-name "$APP_NAME" \
+  --environment-names "$ENV_NAME" \
+  --region "$AWS_REGION" \
+  --query "Environments[?Status!='Terminated'].EnvironmentName" \
+  --output text | grep -q "$ENV_NAME"; then
+  terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME" || \
+    echo "⚠️ Warning: could not import environment '$ENV_NAME' (may already exist in state)"
+else
+  echo "❌ Environment '$ENV_NAME' not found — skipping Terraform import."
+fi
 
 echo "✅ Terraform import and environment setup completed successfully."

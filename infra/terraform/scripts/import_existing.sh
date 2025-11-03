@@ -174,15 +174,28 @@ if [ "$EXISTING_ENV" == "$ENV_NAME" ]; then
     --region "$AWS_REGION" || true
 
   echo "🧩 Attempting to import existing environment into Terraform state..."
+
+MAX_RETRIES=5
+RETRY_DELAY=45
+ATTEMPT=1
+SUCCESS=false
+
+while [ $ATTEMPT -le $MAX_RETRIES ]; do
+  echo "🧩 Attempt #$ATTEMPT to import Elastic Beanstalk environment..."
   if terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME"; then
-    echo "✅ Successfully imported '$ENV_NAME' into Terraform."
+    echo "✅ Successfully imported '$ENV_NAME' into Terraform on attempt #$ATTEMPT."
+    SUCCESS=true
+    break
   else
-    echo "⚠️ Import failed. Retrying in 30s (AWS propagation delay)..."
-    sleep 30
-    terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME" || {
-      echo "❌ Second import attempt failed. Skipping environment creation (already exists in AWS)."
-    }
+    echo "⚠️ Attempt #$ATTEMPT failed. Waiting ${RETRY_DELAY}s before retrying..."
+    sleep $RETRY_DELAY
   fi
+  ATTEMPT=$((ATTEMPT + 1))
+done
+
+if [ "$SUCCESS" = false ]; then
+  echo "❌ All ${MAX_RETRIES} import attempts failed. Skipping environment creation (already exists in AWS)."
+fi
 
 else
   echo "🆕 Environment '$ENV_NAME' not found. Creating it..."

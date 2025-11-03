@@ -173,29 +173,37 @@ if [ "$EXISTING_ENV" == "$ENV_NAME" ]; then
     --environment-names "$ENV_NAME" \
     --region "$AWS_REGION" || true
 
-  echo "🧩 Attempting to import existing environment into Terraform state..."
+  # --- Fetch the Environment ID dynamically ---
+  ENV_ID=$(aws elasticbeanstalk describe-environments \
+    --application-name "$APP_NAME" \
+    --environment-names "$ENV_NAME" \
+    --region "$AWS_REGION" \
+    --query "Environments[0].EnvironmentId" \
+    --output text)
 
-MAX_RETRIES=5
-RETRY_DELAY=45
-ATTEMPT=1
-SUCCESS=false
+  echo "🧩 Attempting to import existing environment into Terraform state (ID: $ENV_ID)..."
 
-while [ $ATTEMPT -le $MAX_RETRIES ]; do
-  echo "🧩 Attempt #$ATTEMPT to import Elastic Beanstalk environment..."
-  if terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME"; then
-    echo "✅ Successfully imported '$ENV_NAME' into Terraform on attempt #$ATTEMPT."
-    SUCCESS=true
-    break
-  else
-    echo "⚠️ Attempt #$ATTEMPT failed. Waiting ${RETRY_DELAY}s before retrying..."
-    sleep $RETRY_DELAY
+  MAX_RETRIES=5
+  RETRY_DELAY=45
+  ATTEMPT=1
+  SUCCESS=false
+
+  while [ $ATTEMPT -le $MAX_RETRIES ]; do
+    echo "🧩 Attempt #$ATTEMPT to import Elastic Beanstalk environment..."
+    if terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$ENV_ID"; then
+      echo "✅ Successfully imported '$ENV_NAME' into Terraform on attempt #$ATTEMPT."
+      SUCCESS=true
+      break
+    else
+      echo "⚠️ Attempt #$ATTEMPT failed. Waiting ${RETRY_DELAY}s before retrying..."
+      sleep $RETRY_DELAY
+    fi
+    ATTEMPT=$((ATTEMPT + 1))
+  done
+
+  if [ "$SUCCESS" = false ]; then
+    echo "❌ All ${MAX_RETRIES} import attempts failed. Skipping environment creation (already exists in AWS)."
   fi
-  ATTEMPT=$((ATTEMPT + 1))
-done
-
-if [ "$SUCCESS" = false ]; then
-  echo "❌ All ${MAX_RETRIES} import attempts failed. Skipping environment creation (already exists in AWS)."
-fi
 
 else
   echo "🆕 Environment '$ENV_NAME' not found. Creating it..."
@@ -216,13 +224,21 @@ else
     --application-name "$APP_NAME" \
     --environment-names "$ENV_NAME" \
     --region "$AWS_REGION"
-
+  
   aws elasticbeanstalk wait environment-running \
     --environment-name "$ENV_NAME" \
     --region "$AWS_REGION"
 
-  echo "✅ Environment is now active and running. Importing into Terraform..."
-  terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME"
+  # Fetch ENV_ID after creation
+  ENV_ID=$(aws elasticbeanstalk describe-environments \
+    --application-name "$APP_NAME" \
+    --environment-names "$ENV_NAME" \
+    --region "$AWS_REGION" \
+    --query "Environments[0].EnvironmentId" \
+    --output text)
+
+  echo "✅ Environment is now active and running. Importing into Terraform (ID: $ENV_ID)..."
+  terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$ENV_ID"
 fi
 
 # === 6️⃣ Import All Other Resources ===

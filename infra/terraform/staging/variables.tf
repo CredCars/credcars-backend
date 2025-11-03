@@ -78,3 +78,8 @@ variable "frontend_url" {
   description = "FRONTEND URL"
   type        = string
 }
+
+variable "app_version" {
+  description = "Elastic Beanstalk application version label"
+  default = "v1-staging"
+}

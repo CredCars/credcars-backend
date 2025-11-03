@@ -27,7 +27,7 @@ resource "aws_s3_object" "app_version" {
 }
 
 resource "aws_elastic_beanstalk_application_version" "version" {
-  name        = "v1-${var.env}"
+  name        = var.app_version
   application = aws_elastic_beanstalk_application.app.name
   bucket      = aws_s3_bucket.beanstalk_app_bucket.bucket
   key         = aws_s3_object.app_version.key

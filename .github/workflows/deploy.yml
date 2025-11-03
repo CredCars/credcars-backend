@@ -119,11 +119,18 @@ jobs:
           cd $TERRAFORM_DIR
           bash ../scripts/import_existing.sh $ENV
 
+      - name: Set dynamic version label
+        run: |
+          TIMESTAMP=$(date +%s)
+          echo "APP_VERSION=v1-${ENV}-${TIMESTAMP}" >> $GITHUB_ENV
+          echo "✅ Using version label: v1-${ENV}-${TIMESTAMP}"
+
       - name: Terraform Apply
         run: |
           cd $TERRAFORM_DIR
           terraform apply -auto-approve \
           -var "app_zip_path=${APP_ZIP_PATH}" \
+          -var "app_version=${APP_VERSION}" \
           -var-file="$ENV.tfvars"
 
       - name: Deploy to Elastic Beanstalk

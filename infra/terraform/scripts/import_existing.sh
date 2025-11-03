@@ -40,16 +40,19 @@ fi
 
 # --- Function to append resource block to beanstalk.tf if missing ---
 append_if_missing() {
-  local resource=$1
-  local block=$2
+  local resource_type=$1
+  local resource_name=$2
+  local block=$3
 
-  if grep -q "resource \"$resource\"" "$TF_FILE" 2>/dev/null; then
-    echo "✅ $resource already declared in $TF_FILE"
+  # Look across all .tf files, not just beanstalk.tf
+  if grep -r "resource \"$resource_type\" \"$resource_name\"" ./*.tf >/dev/null 2>&1; then
+    echo "✅ $resource_type.$resource_name already declared in Terraform files"
   else
-    echo "🧩 Adding missing $resource definition to $TF_FILE..."
+    echo "🧩 Adding missing $resource_type.$resource_name definition to $TF_FILE..."
     echo -e "\n# Auto-added by import script\n$block" >> "$TF_FILE"
   fi
 }
+
 
 # --- Function to import resource if missing ---
 import_if_missing() {
@@ -180,29 +183,29 @@ if [ "$EXISTING_ENV" != "$ENV_NAME" ]; then
 fi
 
 # --- Auto add TF resource blocks if missing ---
-append_if_missing "aws_elastic_beanstalk_application" \
+append_if_missing "aws_elastic_beanstalk_application" "app" \
 "resource \"aws_elastic_beanstalk_application\" \"app\" {
   name = \"$APP_NAME\"
 }"
 
-append_if_missing "aws_elastic_beanstalk_environment" \
+append_if_missing "aws_elastic_beanstalk_environment" "env" \
 "resource \"aws_elastic_beanstalk_environment\" \"env\" {
   name                = \"$ENV_NAME\"
   application         = aws_elastic_beanstalk_application.app.name
   solution_stack_name = \"$SOLUTION_STACK\"
 }"
 
-append_if_missing "aws_iam_role" \
+append_if_missing "aws_iam_role" "eb_ec2_role" \
 "resource \"aws_iam_role\" \"eb_ec2_role\" {
   name = \"aws-elasticbeanstalk-ec2-role\"
 }"
 
-append_if_missing "aws_iam_role" \
+append_if_missing "aws_iam_role" "eb_service_role" \
 "resource \"aws_iam_role\" \"eb_service_role\" {
   name = \"aws-elasticbeanstalk-service-role\"
 }"
 
-append_if_missing "aws_iam_instance_profile" \
+append_if_missing "aws_iam_instance_profile" "eb_ec2_instance_profile" \
 "resource \"aws_iam_instance_profile\" \"eb_ec2_instance_profile\" {
   name = \"aws-elasticbeanstalk-ec2-role\"
 }"

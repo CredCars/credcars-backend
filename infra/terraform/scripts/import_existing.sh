@@ -156,6 +156,7 @@ if [ -z "$SOLUTION_STACK" ]; then
   exit 1
 fi
 
+# --- Detect if environment exists in AWS ---
 EXISTING_ENV=$(aws elasticbeanstalk describe-environments \
   --application-name "$APP_NAME" \
   --environment-names "$ENV_NAME" \
@@ -164,8 +165,25 @@ EXISTING_ENV=$(aws elasticbeanstalk describe-environments \
   --output text || true)
 
 if [ "$EXISTING_ENV" == "$ENV_NAME" ]; then
-  echo "✅ Environment '$ENV_NAME' already exists. Importing into Terraform..."
-  terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME" || echo "Already imported."
+  echo "✅ Environment '$ENV_NAME' already exists."
+
+  echo "⏳ Waiting for environment '$ENV_NAME' to be visible to AWS API..."
+  aws elasticbeanstalk wait environment-exists \
+    --application-name "$APP_NAME" \
+    --environment-names "$ENV_NAME" \
+    --region "$AWS_REGION" || true
+
+  echo "🧩 Attempting to import existing environment into Terraform state..."
+  if terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME"; then
+    echo "✅ Successfully imported '$ENV_NAME' into Terraform."
+  else
+    echo "⚠️ Import failed. Retrying in 30s (AWS propagation delay)..."
+    sleep 30
+    terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME" || {
+      echo "❌ Second import attempt failed. Skipping environment creation (already exists in AWS)."
+    }
+  fi
+
 else
   echo "🆕 Environment '$ENV_NAME' not found. Creating it..."
   aws elasticbeanstalk create-environment \
@@ -180,22 +198,15 @@ else
       Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role \
       Namespace=aws:elasticbeanstalk:environment,OptionName=ServiceRole,Value=aws-elasticbeanstalk-service-role || true
 
-  echo "⏳ Waiting for environment to become available..."
+  echo "⏳ Waiting for environment creation to complete..."
   aws elasticbeanstalk wait environment-exists \
     --application-name "$APP_NAME" \
     --environment-names "$ENV_NAME" \
-    --region "$AWS_REGION" || {
-      echo "❌ Timed out waiting for environment to appear in Elastic Beanstalk."
-      exit 1
-    }
+    --region "$AWS_REGION"
 
-  echo "⏳ Waiting for environment to be ready (this may take several minutes)..."
   aws elasticbeanstalk wait environment-running \
     --environment-name "$ENV_NAME" \
-    --region "$AWS_REGION" || {
-      echo "❌ Timed out waiting for environment to reach 'Ready' state."
-      exit 1
-    }
+    --region "$AWS_REGION"
 
   echo "✅ Environment is now active and running. Importing into Terraform..."
   terraform import -var-file="$TFVARS_FILE" aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME"

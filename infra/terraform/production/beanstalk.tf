@@ -18,10 +18,12 @@ resource "aws_s3_bucket" "beanstalk_app_bucket" {
 }
 
 resource "aws_s3_object" "app_version" {
-  bucket = aws_s3_bucket.beanstalk_app_bucket.id
-  key    = "app-${var.env}.zip"
+  bucket = aws_s3_bucket.beanstalk_app_bucket.bucket
+  key    = var.app_zip_path
   source = "${path.module}/${var.app_zip_path}"
-  etag   = filemd5("${path.module}/${var.app_zip_path}")
+
+  # Safely handle missing file to avoid hard failure during plan phase
+  etag = fileexists("${path.module}/${var.app_zip_path}") ? filemd5("${path.module}/${var.app_zip_path}") : null
 }
 
 resource "aws_elastic_beanstalk_application_version" "version" {

@@ -91,6 +91,7 @@ jobs:
         run: |
           mkdir -p $TERRAFORM_DIR
           mv app.zip "$TERRAFORM_DIR/app-${ENV}.zip"
+          echo "APP_ZIP_PATH=app-${ENV}.zip" >> $GITHUB_ENV
 
       - name: Create $ENV.tfvars from environment variables
         run: |
@@ -121,7 +122,9 @@ jobs:
       - name: Terraform Apply
         run: |
           cd $TERRAFORM_DIR
-          terraform apply -auto-approve -var-file="$ENV.tfvars"
+          terraform apply -auto-approve \
+          -var "app_zip_path=${APP_ZIP_PATH}" \
+          -var-file="$ENV.tfvars"
 
       - name: Deploy to Elastic Beanstalk
         run: |

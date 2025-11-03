@@ -3,4 +3,5 @@ aws_region = "us-east-1"
 app_name = "Credcars-backend"
 instance_type = "t3.micro"
 load_balancer_type = "application"
+app_zip_path = "app-staging.zip"
 

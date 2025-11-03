@@ -43,11 +43,16 @@ import_if_missing() {
   local id=$2
   if terraform state list | grep -q "^${resource}$"; then
     echo "✅ Already in state: $resource"
-  else
-    echo "📦 Importing $resource → $id"
-    terraform import -var-file="$TFVARS_FILE" "$resource" "$id" || echo "⚠️ Warning: import failed for $resource"
+    return 0
   fi
+  if grep -q "${resource}" *.tf; then
+    echo "⚠️ Resource ${resource} already declared in code — skipping import to avoid conflict."
+    return 0
+  fi
+  echo "📦 Importing $resource → $id"
+  terraform import -var-file="$TFVARS_FILE" "$resource" "$id" || echo "⚠️ Warning: import failed for $resource"
 }
+
 
 # === 1️⃣ Ensure Elastic Beanstalk Application Exists ===
 if ! aws elasticbeanstalk describe-applications --region "$AWS_REGION" \

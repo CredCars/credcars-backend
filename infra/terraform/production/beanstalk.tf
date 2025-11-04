@@ -31,6 +31,11 @@ resource "aws_elastic_beanstalk_application_version" "version" {
   application = aws_elastic_beanstalk_application.app.name
   bucket      = aws_s3_bucket.beanstalk_app_bucket.bucket
   key         = aws_s3_object.app_version.key
+    
+  lifecycle {
+    create_before_destroy = true
+    prevent_destroy       = true
+  }
 }
 
 # ==============================================

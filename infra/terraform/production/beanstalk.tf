@@ -35,6 +35,7 @@ resource "aws_elastic_beanstalk_application_version" "version" {
   lifecycle {
     create_before_destroy = true
     prevent_destroy       = true
+    ignore_changes        = [name]
   }
 }
 

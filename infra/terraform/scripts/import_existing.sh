@@ -1,20 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ---------------------------
-# import_existing.sh (improved)
-# ---------------------------
 echo "🚀 Starting dynamic Terraform import for existing AWS resources..."
 
-# Ensure we're in the Terraform directory (main.tf presence)
+# Ensure we're in the Terraform directory
 if [ ! -f "main.tf" ]; then
   echo "❌ Run this script from your Terraform environment directory (e.g., infra/terraform/*)"
   exit 1
-fi
-
-# Ensure terraform init already run (helpful check)
-if [ ! -d ".terraform" ]; then
-  echo "⚠️ Warning: .terraform directory missing. Please run 'terraform init' before this script (CI usually does this)."
 fi
 
 # Detect environment (default: staging)
@@ -33,7 +25,7 @@ fi
 echo "🌍 Environment detected: $ENV"
 echo "📄 Using variables file: $TFVARS_FILE"
 
-# Environment naming
+# Environment-specific config
 if [ "$ENV" = "production" ]; then
   GITHUB_DEPLOYER_ID="github-deployer-production"
   ENV_NAME="${APP_NAME}-production-env"
@@ -46,68 +38,64 @@ else
   VERSION_LABEL="v1-staging"
 fi
 
-# Helper to run terraform imports non-interactively
-tf_import() {
-  local addr=$1
-  local id=$2
-  echo "📦 terraform import $addr <- $id"
-  terraform import -input=false -no-color -lock=false -var-file="$TFVARS_FILE" "$addr" "$id"
-}
+# Backup Terraform state (for safety)
+if terraform state pull >/dev/null 2>&1; then
+  echo "💾 Backing up current Terraform state..."
+  terraform state pull > "state-backup-$(date +%F-%H%M%S).json" || true
+fi
 
-# --- robust detection of declared resource across all .tf files
-resource_declared_in_tf() {
-  local type="$1"
-  local name="$2"
-  # exact match search of resource "type" "name"
-  if grep -R --line-number --binary-files=without-match -- "resource[[:space:]]*\"${type}\"[[:space:]]*\"${name}\"" ./*.tf >/dev/null 2>&1; then
-    return 0
-  fi
-  return 1
-}
-
-# Append minimal TF block to beanstalk.tf when missing (safe minimal stubs)
+# --- Utility to append resource block if missing ---
 append_if_missing() {
-  local rtype=$1
-  local rname=$2
+  local resource_type=$1
+  local resource_name=$2
   local block=$3
 
-  if resource_declared_in_tf "$rtype" "$rname"; then
-    echo "✅ $rtype.$rname already declared in Terraform files"
+  if grep -r "resource \"$resource_type\" \"$resource_name\"" ./*.tf >/dev/null 2>&1; then
+    echo "✅ $resource_type.$resource_name already declared in Terraform files"
   else
-    echo "🧩 Adding missing $rtype.$rname declaration to $TF_FILE (minimal stub)..."
-    printf "\n# Auto-added by import script - minimal stub\n%s\n" "$block" >> "$TF_FILE"
+    echo "🧩 Adding missing $resource_type.$resource_name definition to $TF_FILE..."
+    echo -e "\n# Auto-added by import script\n$block" >> "$TF_FILE"
   fi
 }
 
-# ----- create/import helper (generic) -----
+# --- Safe import wrapper ---
 import_if_missing() {
-  local addr=$1    # terraform address (e.g. aws_iam_role.eb_ec2_role)
-  local id=$2      # remote id (string)
-  if terraform state list | grep -q "^${addr}$"; then
-    echo "✅ Already in state: $addr"
+  local resource=$1
+  local id=$2
+
+  echo "🧩 Checking Terraform state for $resource..."
+  if terraform state list | grep -q "^${resource}$"; then
+    echo "✅ Already in Terraform state: $resource"
     return 0
   fi
 
-  # skip import if the resource is declared in tf but state doesn't have it
-  if resource_declared_in_tf "$(echo $addr | cut -d. -f1)" "$(echo $addr | cut -d. -f2)"; then
-    echo "⚠️ ${addr} is declared in tf but not in state — attempting import (may fail if already managed elsewhere)."
+  echo "📦 Importing $resource → $id"
+  set +e
+  terraform import -input=false -no-color -lock=false -var-file="$TFVARS_FILE" "$resource" "$id"
+  status=$?
+  set -e
+
+  if [ $status -eq 0 ]; then
+    echo "✅ Imported successfully: $resource"
+    return 0
   fi
 
-  set +e
-  tf_import "$addr" "$id"
-  rc=$?
-  set -e
-  if [ $rc -ne 0 ]; then
-    echo "❌ Failed to import $addr <- $id (exit $rc)."
-    return $rc
+  # Gracefully handle known cases
+  if terraform state list | grep -q "^${resource}$"; then
+    echo "✅ Appears already imported (skipping)."
+    return 0
   fi
-  echo "✅ Imported $addr successfully."
+
+  if terraform import -dry-run "$resource" "$id" 2>&1 | grep -q "Resource already managed"; then
+    echo "⚠️ Resource already managed by Terraform — skipping import."
+    return 0
+  fi
+
+  echo "⚠️ Warning: import failed for $resource (exit code $status)"
   return 0
 }
 
-# -----------------------
-# Ensure application exists
-# -----------------------
+# --- Ensure EB Application exists ---
 if ! aws elasticbeanstalk describe-applications --region "$AWS_REGION" \
   --query "Applications[?ApplicationName=='$APP_NAME']" --output text | grep -q "$APP_NAME"; then
   echo "🆕 Creating Elastic Beanstalk Application: $APP_NAME"
@@ -119,9 +107,7 @@ else
   echo "✅ Elastic Beanstalk Application exists"
 fi
 
-# -----------------------
-# Ensure roles / instance-profile / user
-# -----------------------
+# --- IAM Roles & Profiles ---
 create_iam_role_if_missing() {
   local role_name=$1
   local policy_arn=$2
@@ -130,14 +116,18 @@ create_iam_role_if_missing() {
     aws iam create-role \
       --role-name "$role_name" \
       --assume-role-policy-document '{
-        "Version":"2012-10-17",
-        "Statement":[{"Effect":"Allow","Principal":{"Service":"elasticbeanstalk.amazonaws.com"},"Action":"sts:AssumeRole"}]
-      }' >/dev/null || true
+        "Version": "2012-10-17",
+        "Statement": [{
+          "Effect": "Allow",
+          "Principal": {"Service": "elasticbeanstalk.amazonaws.com"},
+          "Action": "sts:AssumeRole"
+        }]
+      }' >/dev/null
   else
     echo "✅ IAM role exists: $role_name"
   fi
 
-  ATTACHED=$(aws iam list-attached-role-policies --role-name "$role_name" --query "AttachedPolicies[].PolicyArn" --output text || true)
+  ATTACHED=$(aws iam list-attached-role-policies --role-name "$role_name" --query "AttachedPolicies[].PolicyArn" --output text)
   if [[ "$ATTACHED" != *"$policy_arn"* ]]; then
     echo "🔗 Attaching policy $policy_arn to $role_name"
     aws iam attach-role-policy --role-name "$role_name" --policy-arn "$policy_arn" || true
@@ -149,22 +139,22 @@ create_iam_role_if_missing "aws-elasticbeanstalk-ec2-role" "arn:aws:iam::aws:pol
 
 if ! aws iam get-instance-profile --instance-profile-name "aws-elasticbeanstalk-ec2-role" >/dev/null 2>&1; then
   echo "🆕 Creating IAM Instance Profile: aws-elasticbeanstalk-ec2-role"
-  aws iam create-instance-profile --instance-profile-name "aws-elasticbeanstalk-ec2-role" || true
-  aws iam add-role-to-instance-profile --instance-profile-name "aws-elasticbeanstalk-ec2-role" --role-name "aws-elasticbeanstalk-ec2-role" || true
+  aws iam create-instance-profile --instance-profile-name "aws-elasticbeanstalk-ec2-role"
+  aws iam add-role-to-instance-profile \
+    --instance-profile-name "aws-elasticbeanstalk-ec2-role" \
+    --role-name "aws-elasticbeanstalk-ec2-role"
 else
   echo "✅ IAM Instance Profile exists: aws-elasticbeanstalk-ec2-role"
 fi
 
 if ! aws iam get-user --user-name "$GITHUB_DEPLOYER_ID" >/dev/null 2>&1; then
   echo "🆕 Creating IAM user: $GITHUB_DEPLOYER_ID"
-  aws iam create-user --user-name "$GITHUB_DEPLOYER_ID" || true
+  aws iam create-user --user-name "$GITHUB_DEPLOYER_ID"
 else
   echo "✅ IAM User exists: $GITHUB_DEPLOYER_ID"
 fi
 
-# -----------------------
-# Ensure application version exists (minimal)
-# -----------------------
+# --- Ensure EB App Version ---
 EXISTING_VERSION=$(aws elasticbeanstalk describe-application-versions \
   --application-name "$APP_NAME" \
   --query "ApplicationVersions[?VersionLabel=='$VERSION_LABEL'].VersionLabel" \
@@ -175,36 +165,32 @@ if [ "$EXISTING_VERSION" != "$VERSION_LABEL" ]; then
   ZIP_FILE="app-${ENV}.zip"
   if [ ! -f "$ZIP_FILE" ]; then
     echo "console.log('Credcars backend ${ENV} environment');" > index.js
-    zip -r "$ZIP_FILE" index.js >/dev/null || true
+    zip -r "$ZIP_FILE" index.js >/dev/null
   fi
-  aws s3 cp "$ZIP_FILE" "s3://elasticbeanstalk-${AWS_REGION}-${AWS_ACCOUNT_ID}/${ZIP_FILE}" || true
+  aws s3 cp "$ZIP_FILE" "s3://elasticbeanstalk-${AWS_REGION}-${AWS_ACCOUNT_ID}/${ZIP_FILE}"
   aws elasticbeanstalk create-application-version \
     --application-name "$APP_NAME" \
     --version-label "$VERSION_LABEL" \
     --source-bundle S3Bucket="elasticbeanstalk-${AWS_REGION}-${AWS_ACCOUNT_ID}",S3Key="${ZIP_FILE}" \
-    --region "$AWS_REGION" || true
-  echo "✅ Application version '$VERSION_LABEL' created (or already exists)."
+    --region "$AWS_REGION"
+  echo "✅ Application version '$VERSION_LABEL' created."
 else
   echo "✅ Application version '$VERSION_LABEL' already exists."
 fi
 
-# -----------------------
-# Platform / solution stack discovery
-# -----------------------
+# --- Detect and manage EB environment ---
 SOLUTION_STACK=$(aws elasticbeanstalk list-available-solution-stacks \
   --region "$AWS_REGION" \
   --query "SolutionStacks[]" \
-  --output text | tr '\t' '\n' | grep "64bit Amazon Linux 2023" | grep "Node.js" | tail -n 1 | xargs || true)
+  --output text | tr '\t' '\n' | grep "64bit Amazon Linux 2023" | grep -E "Node.js (20|22)" | tail -n 1 | xargs)
 
 if [ -z "$SOLUTION_STACK" ]; then
-  echo "❌ Could not find Node.js 22+ Amazon Linux 2023 solution stack. Aborting."
+  echo "❌ Could not find Node.js 20/22 platform. Aborting."
   exit 1
 fi
+
 echo "🧩 Using solution stack: $SOLUTION_STACK"
 
-# -----------------------
-# Create env if missing (minimal options) and import reliably
-# -----------------------
 EXISTING_ENV=$(aws elasticbeanstalk describe-environments \
   --application-name "$APP_NAME" \
   --environment-names "$ENV_NAME" \
@@ -212,10 +198,8 @@ EXISTING_ENV=$(aws elasticbeanstalk describe-environments \
   --query "Environments[?Status!='Terminated'].EnvironmentName" \
   --output text || true)
 
-if [ "$EXISTING_ENV" == "$ENV_NAME" ]; then
-  echo "✅ Environment '$ENV_NAME' already exists."
-else
-  echo "🆕 Creating Elastic Beanstalk environment: $ENV_NAME (minimal option-settings to avoid LB mismatch)..."
+if [ "$EXISTING_ENV" != "$ENV_NAME" ]; then
+  echo "🆕 Creating Elastic Beanstalk environment: $ENV_NAME"
   aws elasticbeanstalk create-environment \
     --application-name "$APP_NAME" \
     --environment-name "$ENV_NAME" \
@@ -224,40 +208,14 @@ else
     --cname-prefix "$CNAME_PREFIX" \
     --region "$AWS_REGION" \
     --option-settings \
+      Namespace=aws:elasticbeanstalk:environment,OptionName=EnvironmentType,Value=loadbalanced \
       Namespace=aws:autoscaling:launchconfiguration,OptionName=IamInstanceProfile,Value=aws-elasticbeanstalk-ec2-role \
-      Namespace=aws:elasticbeanstalk:environment,OptionName=ServiceRole,Value=aws-elasticbeanstalk-service-role \
-    >/dev/null || true
-
-  # poll for visibility (short)
-  echo "⏳ Polling for new environment visibility..."
-  POLL=0
-  MAX_POLL=20
-  while [ $POLL -lt $MAX_POLL ]; do
-    sleep 6
-    POLL=$((POLL+1))
-    STATUS=$(aws elasticbeanstalk describe-environments \
-      --application-name "$APP_NAME" \
-      --environment-names "$ENV_NAME" \
-      --region "$AWS_REGION" \
-      --query "Environments[0].Status" \
-      --output text 2>/dev/null || echo "None")
-    if [ "$STATUS" != "None" ] && [ "$STATUS" != "null" ]; then
-      echo "✅ Environment visible (status: $STATUS)"
-      break
-    fi
-    echo "⏳ Not yet visible ($POLL/$MAX_POLL)..."
-  done
+      Namespace=aws:elasticbeanstalk:environment,OptionName=ServiceRole,Value=aws-elasticbeanstalk-service-role || true
+else
+  echo "✅ Environment '$ENV_NAME' already exists."
 fi
 
-# fetch EnvironmentId if available (prefer id for import)
-ENV_ID=$(aws elasticbeanstalk describe-environments \
-  --application-name "$APP_NAME" \
-  --environment-names "$ENV_NAME" \
-  --region "$AWS_REGION" \
-  --query "Environments[0].EnvironmentId" \
-  --output text 2>/dev/null || true)
-
-# add minimal stubs to tf only if missing (keeps beanstalk.tf untouched if present)
+# --- Ensure TF resource blocks exist ---
 append_if_missing "aws_elastic_beanstalk_application" "app" \
 "resource \"aws_elastic_beanstalk_application\" \"app\" {
   name = \"$APP_NAME\"
@@ -285,25 +243,13 @@ append_if_missing "aws_iam_instance_profile" "eb_ec2_instance_profile" \
   name = \"aws-elasticbeanstalk-ec2-role\"
 }"
 
-# ---------------
-# Imports (use id when available)
-# ---------------
+# --- Terraform imports ---
 echo "🧩 Importing resources into Terraform state (non-interactive)..."
-
-# application
 import_if_missing aws_elastic_beanstalk_application.app "$APP_NAME"
-
-# environment (prefer id)
-if [ -n "$ENV_ID" ] && [ "$ENV_ID" != "None" ]; then
-  import_if_missing aws_elastic_beanstalk_environment.env "$ENV_ID"
-else
-  import_if_missing aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME"
-fi
-
-# IAM roles / profile / user
-import_if_missing aws_iam_role.eb_ec2_role aws-elasticbeanstalk-ec2-role || true
-import_if_missing aws_iam_role.eb_service_role aws-elasticbeanstalk-service-role || true
-import_if_missing aws_iam_instance_profile.eb_ec2_instance_profile aws-elasticbeanstalk-ec2-role || true
-import_if_missing aws_iam_user.github_deployer "$GITHUB_DEPLOYER_ID" || true
+import_if_missing aws_elastic_beanstalk_environment.env "$APP_NAME/$ENV_NAME"
+import_if_missing aws_iam_role.eb_ec2_role aws-elasticbeanstalk-ec2-role
+import_if_missing aws_iam_role.eb_service_role aws-elasticbeanstalk-service-role
+import_if_missing aws_iam_instance_profile.eb_ec2_instance_profile aws-elasticbeanstalk-ec2-role
+import_if_missing aws_iam_user.github_deployer "$GITHUB_DEPLOYER_ID"
 
 echo "✅ Terraform import and environment setup completed successfully."

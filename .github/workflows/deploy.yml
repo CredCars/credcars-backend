@@ -101,7 +101,7 @@ jobs:
           jwt_refresh_expires_in   = "${JWT_REFRESH_EXPIRES_IN}"
           allowed_origins          = "${ALLOWED_ORIGINS}"
           frontend_url             = "${FRONTEND_URL}"
-          env                      = "${NODE_ENV}"
+          env                      = "${ENV}"
           EOF
           echo "✅ $ENV.tfvars created successfully"
 

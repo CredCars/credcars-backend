@@ -37,17 +37,17 @@ resource "aws_elastic_beanstalk_application_version" "version" {
 # Elastic Beanstalk Environment
 # ==============================================
 resource "aws_elastic_beanstalk_environment" "env" {
-  name        = "${var.app_name}-${var.env}-env"
-  application = aws_elastic_beanstalk_application.app.name
+  name                = "${var.app_name}-${var.env}-env"
+  application         = aws_elastic_beanstalk_application.app.name
   solution_stack_name = "64bit Amazon Linux 2023 v6.6.6 running Node.js 20"
-
-  version_label = aws_elastic_beanstalk_application_version.version.name
+  version_label       = aws_elastic_beanstalk_application_version.version.name
 
   depends_on = [
     aws_iam_instance_profile.eb_ec2_instance_profile,
     aws_iam_role.eb_service_role
   ]
 
+  # === VPC Settings ===
   setting {
     namespace = "aws:ec2:vpc"
     name      = "VPCId"
@@ -241,10 +241,17 @@ resource "aws_elastic_beanstalk_environment" "env" {
   }
 
   # ======================
-  # Prevent accidental destroy
+  # Lifecycle Management
   # ======================
   lifecycle {
     prevent_destroy = true
+
+    # ✅ Ignore environment setting drift (especially VPC-related)
+    ignore_changes = [
+      setting,
+      cname_prefix,
+      version_label
+    ]
   }
 
   tags = {
@@ -252,4 +259,3 @@ resource "aws_elastic_beanstalk_environment" "env" {
     Project     = var.app_name
   }
 }
-

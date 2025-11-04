@@ -105,7 +105,7 @@ jobs:
           EOF
           echo "✅ $ENV.tfvars created successfully"
 
-      - name: Terraform Init
+      - name: Terraform init
         run: |
           cd $TERRAFORM_DIR
           terraform init -reconfigure

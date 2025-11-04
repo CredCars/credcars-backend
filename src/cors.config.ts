@@ -3,13 +3,14 @@ export default {
     'https://credcars.com.ng',
     'https://app.credcars.com.ng',
     'https://devapp.credcars.com.ng',
-    /http:\/\/localhost:[1-9]+/,
-    /http:\/\/127.0.0.1:[1-9]+/,
-    /http:\/\/[0-255].[0-255].[0-255].[0-255]:[0-6000]+/,
-    /http(s)?:\/\/credcars\.com\.ng/,
-    /http(s)?:\/\/app\.credcars\.com\.ng/,
-    /http(s)?:\/\/devapp\.credcars\.com\.ng/,
+    // Development origins - only allow localhost with common ports
+    /http:\/\/localhost:(3000|3001|8080|5173|5174|4200)/,
+    /http:\/\/127\.0\.0\.1:(3000|3001|8080|5173|5174|4200)/,
+    // Production patterns - more strict
+    /https:\/\/credcars\.com\.ng(\/.*)?$/,
+    /https:\/\/app\.credcars\.com\.ng(\/.*)?$/,
+    /https:\/\/devapp\.credcars\.com\.ng(\/.*)?$/,
   ],
   allowedHeaders:
-    'Content-Type, Accept, Access-Control-Allow-Origin, Authorization',
+    'Content-Type, Accept, Access-Control-Allow-Origin, Authorization, X-Requested-With',
 };

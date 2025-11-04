@@ -1,3 +1,5 @@
+import * as dotenv from 'dotenv';
+dotenv.config();
 export interface Configuration {
   port: number;
   database: {
@@ -11,6 +13,39 @@ export interface Configuration {
   };
   nodeEnv: string;
   allowedOrigins: string[];
+  session: {
+    secret: string;
+  };
+}
+
+// Validate required environment variables at startup
+const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
+
+const nodeEnv = process.env.NODE_ENV;
+
+// In production, require SESSION_SECRET too
+if (nodeEnv === 'production') {
+  requiredEnvVars.push('SESSION_SECRET');
+}
+
+requiredEnvVars.forEach((varName) => {
+  if (!process.env[varName]) {
+    console.log(`${varName}, ${process.env[varName]}`);
+
+    throw new Error(
+      `Missing required environment variable: ${varName}. Please set it in your .env file or environment.`,
+    );
+  }
+});
+
+// Warn about weak session secret in production
+if (
+  nodeEnv === 'production' &&
+  process.env.SESSION_SECRET === 'change-me-in-production'
+) {
+  console.warn(
+    '⚠️  WARNING: Using default SESSION_SECRET in production. This is insecure!',
+  );
 }
 
 export default (): Configuration => ({
@@ -20,10 +55,13 @@ export default (): Configuration => ({
   },
   jwt: {
     secret: process.env.JWT_SECRET,
-    expiresIn: process.env.JWT_EXPIRES_IN,
+    expiresIn: process.env.JWT_EXPIRES_IN || '15m',
     refreshSecret: process.env.JWT_REFRESH_SECRET,
-    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
+    refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   },
-  nodeEnv: process.env.NODE_ENV,
+  nodeEnv: process.env.NODE_ENV || 'development',
   allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',') || [],
+  session: {
+    secret: process.env.SESSION_SECRET || 'change-me-in-production',
+  },
 });

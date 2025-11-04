@@ -9,11 +9,13 @@ import { JwtStrategy } from '@auth/strategies/jwt.strategy';
 import { JwtRefreshStrategy } from '@auth/strategies/jwt-refresh.strategy';
 import configuration from '@config/configuration';
 import { Logger } from '@nestjs/common';
+import { CommonModule } from '@common/common.module';
 
 @Module({
   imports: [
     UserModule,
     UtilModule,
+    CommonModule,
     PassportModule,
     JwtModule.registerAsync({
       useFactory: async () => ({

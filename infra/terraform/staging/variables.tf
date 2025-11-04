@@ -1,6 +1,8 @@
 variable "env" {
   description = "Deployment environment name (e.g., staging, production)"
   type = string
+  default = "staging"
+
 }
 
 variable "aws_region" {
@@ -75,4 +77,9 @@ variable "allowed_origins" {
 variable "frontend_url" {
   description = "FRONTEND URL"
   type        = string
+}
+
+variable "app_version" {
+  description = "Elastic Beanstalk application version label"
+  default = "v1-staging"
 }
